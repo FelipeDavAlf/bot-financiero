@@ -38,6 +38,10 @@ jobs:
 
     # 6. Pruebas unitarias y cobertura de código
     - name: Run Tests with Coverage
+      env:
+        TELEGRAM_TOKEN: "ci_dummy_token"
+        GEMINI_API_KEY: "ci_dummy_key"
+        GOOGLE_SHEETS_CREDENTIALS_FILE: "ci_dummy_file.json"
       run: pytest --cov=core --cov=services tests/
 
     # 7. Build Test: Asegurar que el Dockerfile compila correctamente antes de ir a Render
