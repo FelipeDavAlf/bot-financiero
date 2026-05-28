@@ -2,6 +2,7 @@ import logging
 from telegram import Update
 from telegram.ext import Application, MessageHandler, filters, ContextTypes
 from services.nlp_service import NLPService
+from services.sheets_service import SheetsService
 from core.config import settings
 
 # Logging configuration to see background errors in the terminal
@@ -15,10 +16,11 @@ class TelegramBot:
     the NLP processing and database storage.
     """
 
-    def __init__(self, nlp_service: NLPService):
+    def __init__(self, nlp_service: NLPService, sheets_service: SheetsService):
         self.nlp_service = nlp_service
-        # Initialize the Telegram application with your token
+        self.sheets_service = sheets_service
         self.app = Application.builder().token(settings.TELEGRAM_TOKEN).build()
+        self.app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
         
         # Listen for any text message that is NOT a command (like /start)
         self.app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
@@ -34,7 +36,8 @@ class TelegramBot:
             # 2. Extract structured data using Gemini
             transaction = self.nlp_service.message_processor(user_message)
             
-            # 3. TODO: Send 'transaction' to Google Sheets Service here
+            # 2. Persist data into Google Sheets (The missing link!)
+            self.sheets_service.append_transaction(transaction)
             
             # 4. Format a clean response
             response = (
