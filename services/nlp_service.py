@@ -50,13 +50,13 @@ class NLPService:
         Hoy es {today}. Eres un asistente financiero muy preciso.
         Analiza el siguiente mensaje y extrae los datos de la transacción.
         Devuelve ÚNICAMENTE un JSON válido que cumpla con esta estructura:
-        - fecha (YYYY-MM-DD, usa la fecha de hoy si no se especifica)
-        - tipo_movimiento ("Ingreso", "Gasto" o "Traspaso")
-        - monto (número positivo)
-        - cuenta_origen (string o null, ej. "Tarjeta Débito", "Efectivo")
-        - cuenta_destino (string o null, ej. "Cetes", "Ahorro Carro")
-        - categoria (string)
-        - descripcion (string)
+        - date (YYYY-MM-DD, usa la fecha de hoy si no se especifica)
+        - transaction_type ("Ingreso", "Gasto" o "Traspaso")
+        - amount (número positivo)
+        - source_account (string o null, ej. "Tarjeta Débito", "Efectivo")
+        - destination_account (string o null, ej. "Cetes", "Ahorro Carro")
+        - category (string)
+        - description (string)
 
         Mensaje del usuario: "{user_message}"
         """
