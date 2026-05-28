@@ -1,30 +1,23 @@
 import gspread
 import logging
+import json
+import os
 from core.models import Transaction
 from core.config import settings
 
 class SheetsService:
-    """
-    Service responsible for interacting with the Google Sheets API.
-    
-    This class handles authentication via a Google Service Account and manages
-    the appending of validated Transaction records into a specific spreadsheet.
-    """
-
     def __init__(self, spreadsheet_name: str, worksheet_name: str = "Transactions"):
-        """
-        Initializes the SheetsService by authenticating and opening the target worksheet.
-
-        Args:
-            spreadsheet_name (str): The exact title of the Google Spreadsheet.
-            worksheet_name (str): The specific tab name within the spreadsheet. 
-                Defaults to "Transactions".
-        """
         try:
-            # Authenticate using the credentials JSON file path from settings
-            self.client = gspread.service_account(filename=settings.SHEETS_CREDENTIALS)
+            # Intentamos leer las credenciales desde una variable de entorno (Para Producción)
+            creds_env = os.getenv("GOOGLE_SHEETS_CREDENTIALS_JSON")
             
-            # Open the spreadsheet and select the specific worksheet
+            if creds_env:
+                creds_dict = json.loads(creds_env)
+                self.client = gspread.service_account_from_dict(creds_dict)
+            else:
+                # Fallback: leemos el archivo local (Para Desarrollo)
+                self.client = gspread.service_account(filename=settings.SHEETS_CREDENTIALS)
+            
             self.spreadsheet = self.client.open(spreadsheet_name)
             self.worksheet = self.spreadsheet.worksheet(worksheet_name)
             logging.info(f"Successfully connected to spreadsheet: {spreadsheet_name}")
