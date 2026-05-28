@@ -1,0 +1,45 @@
+name: CI Pipeline
+
+# El pipeline se ejecutará CADA VEZ que alguien abra un Pull Request hacia main
+on:
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  quality-assurance:
+    name: QA & Build Test
+    runs-on: ubuntu-latest
+
+    steps:
+    # 1. Clonar el código del repositorio
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    # 2. Configurar la versión correcta de Python
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    # 3. Instalar dependencias de producción y desarrollo
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install -r requirements-dev.txt
+
+    # 4. Linter: Validar formato y buenas prácticas de código
+    - name: Run Linters (Ruff)
+      run: ruff check .
+
+    # 5. SAST: Análisis estático de seguridad
+    - name: Security Audit (Bandit)
+      run: bandit -r core/ services/
+
+    # 6. Pruebas unitarias y cobertura de código
+    - name: Run Tests with Coverage
+      run: pytest --cov=core --cov=services tests/
+
+    # 7. Build Test: Asegurar que el Dockerfile compila correctamente antes de ir a Render
+    - name: Test Docker Build
+      run: docker build -t bot-financiero:test .
