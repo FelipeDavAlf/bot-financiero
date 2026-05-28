@@ -1,7 +1,5 @@
-import os
 from fastapi import FastAPI, Request
 from telegram import Update
-import uvicorn
 from contextlib import asynccontextmanager
 
 from services.nlp_service import NLPService
