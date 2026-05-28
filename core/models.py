@@ -2,7 +2,7 @@ from pydantic import BaseModel, Field
 from typing import Optional, Literal
 from datetime import date
 
-class Transaccion(BaseModel):
+class Transaction(BaseModel):
     fecha: date
     # Restringimos las opciones para que Gemini no invente tipos de movimiento
     tipo_movimiento: Literal["Ingreso", "Gasto", "Traspaso"]

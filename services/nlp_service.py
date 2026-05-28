@@ -2,7 +2,7 @@ from google import genai
 from google.genai import types
 import json
 from datetime import date
-from core.models import Transaccion
+from core.models import Transaction
 from core.config import settings
 
 class NLPService:
@@ -22,26 +22,26 @@ class NLPService:
         """
         self.client = genai.Client(api_key=settings.GEMINI_API_KEY)
 
-    def message_processor(self, user_message: str) -> Transaccion:
+    def message_processor(self, user_message: str) -> Transaction:
         """
         Analyzes a natural language message and extracts transaction details.
 
         This method sends a strictly formatted prompt to the Gemini 2.5 Flash model,
         forcing a JSON response. It then parses the JSON and validates it against 
-        the Transaccion Pydantic model.
+        the Transaction Pydantic model.
 
         Args:
             user_message (str): The raw text message provided by the user 
                 (e.g., "I spent 120 on chilaquiles with my debit card").
 
         Returns:
-            Transaccion: A validated Pydantic model containing the structured 
+            Transaction: A validated Pydantic model containing the structured 
                 transaction data (date, type, amount, categories, etc.).
 
         Raises:
             json.JSONDecodeError: If the model fails to return a valid JSON string.
             pydantic.ValidationError: If the extracted data does not match the 
-                expected Transaccion schema.
+                expected Transaction schema.
             Exception: For any API or connection errors with Google GenAI.
         """
         today = date.today().isoformat()
@@ -71,4 +71,4 @@ class NLPService:
         )
         
         data = json.loads(response.text)
-        return Transaccion(**data)
+        return Transaction(**data)
