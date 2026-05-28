@@ -57,8 +57,3 @@ class TelegramBot:
         except Exception as e:
             logging.error(f"Error processing message: {e}")
             await update.message.reply_text("❌ Sorry, I couldn't process that. Try being more specific.")
-
-    def run(self):
-        """Starts the bot in polling mode."""
-        print("🤖 Bot is running! Send a message from Telegram...")
-        self.app.run_polling(allowed_updates=Update.ALL_TYPES)

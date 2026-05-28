@@ -8,6 +8,7 @@ class Settings:
     TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
     GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
     SHEETS_CREDENTIALS = os.getenv("GOOGLE_SHEETS_CREDENTIALS_FILE", "credentials.json")
+    WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # Solo se usa en producción (Render) para configurar el Webhook de Telegram 
 
 # Instanciamos la configuración para usarla en otros archivos
 settings = Settings()
