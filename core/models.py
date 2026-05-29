@@ -17,6 +17,6 @@ class Transaction(BaseModel):
     # Origen y destino son opcionales dependiendo del tipo de movimiento
     source_account: Optional[str] = Field(None, description="Ej: Tarjeta Débito, Efectivo")
     destination_account: Optional[str] = Field(None, description="Ej: Cetes, Ahorro Carro")
-    
     category: str
+    subcategory: str
     description: str

@@ -17,6 +17,7 @@ def test_process_message_success(mock_genai_client_class):
         "source_account": "Tarjeta Débito", 
         "destination_account": null, 
         "category": "Comida", 
+        "subcategory": "Pizza",
         "description": "Pizza"
     }
     """
