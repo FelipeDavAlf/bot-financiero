@@ -48,6 +48,7 @@ class SheetsService:
                 transaction.source_account or "",
                 transaction.destination_account or "",
                 transaction.category,
+                transaction.subcategory,
                 transaction.description
             ]
             

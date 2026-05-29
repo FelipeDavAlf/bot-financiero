@@ -55,7 +55,8 @@ class NLPService:
         - amount (número positivo)
         - source_account (string o null, ej. "Tarjeta Débito", "Efectivo")
         - destination_account (string o null, ej. "Cetes", "Ahorro Carro")
-        - category (string)
+        - category (string). DEBE ser EXACTAMENTE una de esta lista: [Salario, Rendimientos, Alimentación, Vivienda y Servicios, Transporte, Suscripciones, Ocio y Entretenimiento, Salud y Cuidado, Mascotas, Ahorro e Inversión, Otros, Traspaso].
+        - subcategory (string). Asigna una etiqueta corta (1 a 3 palabras) para el detalle. Ejemplos: si category es "Transporte", subcategory puede ser "Uber" o "Gasolina". Si es "Mascotas", puede ser "Arena" o "Comida". Si es "Ocio y Entretenimiento", puede ser "Videojuegos", "Conciertos" o "Cafetería".
         - description (string)
 
         Mensaje del usuario: "{user_message}"

@@ -27,6 +27,7 @@ def test_append_transaction_success(mock_getenv, mock_service_account):
         transaction_type="Gasto",
         amount=100.0,
         category="Transporte",
+        subcategory="Uber",
         description="Uber"
     )
 

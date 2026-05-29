@@ -45,6 +45,7 @@ class TelegramBot:
                 f"🔹 **Type:** {transaction.transaction_type}\n"
                 f"💰 **Amount:** ${transaction.amount}\n"
                 f"🏷️ **Category:** {transaction.category}\n"
+                f"📌 **Subcategory:** {transaction.subcategory}\n"
                 f"📝 **Description:** {transaction.description}\n"
                 f"🏦 **Origin:** {transaction.source_account or 'N/A'}\n"
                 f"🎯 **Destination:** {transaction.destination_account or 'N/A'}\n"
