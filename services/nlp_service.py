@@ -53,8 +53,8 @@ class NLPService:
         - date (YYYY-MM-DD, usa la fecha de hoy si no se especifica)
         - transaction_type ("Ingreso", "Gasto" o "Traspaso")
         - amount (número positivo)
-        - source_account (string o null, ej. "Tarjeta Débito", "Efectivo")
-        - destination_account (string o null, ej. "Cetes", "Ahorro Carro")
+        - source_account (string o null). DEBE ser EXACTAMENTE una de esta lista: ["Efectivo", "Tarjeta Débito BBVA", "Tarjeta Débito Stori", "Tarjeta Crédito BBVA", "Tarjeta Crédito Stori", "Tarjeta Crédito Rappi", "Tarjeta Crédito Invex", "Cetes"]. Si el mensaje no lo menciona, infiérelo lógicamente o déjalo en null.
+        - destination_account (string o null). DEBE ser EXACTAMENTE una de la misma lista anterior. Usualmente aplica para "Traspaso" o "Ingreso". Si el mensaje no lo menciona, infiérelo lógicamente o déjalo en null.
         - category (string). DEBE ser EXACTAMENTE una de esta lista: [Salario, Rendimientos, Alimentación, Vivienda y Servicios, Transporte, Suscripciones, Ocio y Entretenimiento, Salud y Cuidado, Mascotas, Ahorro e Inversión, Otros, Traspaso].
         - subcategory (string). Asigna una etiqueta corta (1 a 3 palabras) para el detalle. Ejemplos: si category es "Transporte", subcategory puede ser "Uber" o "Gasolina". Si es "Mascotas", puede ser "Arena" o "Comida". Si es "Ocio y Entretenimiento", puede ser "Videojuegos", "Conciertos" o "Cafetería".
         - description (string)
