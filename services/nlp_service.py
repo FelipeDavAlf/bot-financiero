@@ -4,7 +4,6 @@ import json
 from datetime import date
 from core.models import Transaction, TransactionList
 from core.config import settings
-import os
 
 class NLPService:
     """
@@ -117,7 +116,7 @@ class NLPService:
         """
         Processes a PDF, CSV, or Excel file and extracts multiple transactions.
         """
-        prompt = """
+        prompt = f"""
         Eres un asistente financiero experto. Analiza el siguiente estado de cuenta o documento financiero.
         Extrae TODAS las transacciones válidas que encuentres.
         Clasifica los pagos a la propia tarjeta de crédito como un "Traspaso", asignando la cuenta de origen (si se menciona) y como destino la tarjeta de crédito que se está pagando. Ignora saldo anterior o conceptos informativos que no sean gastos, ingresos o traspasos reales del periodo.
