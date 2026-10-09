@@ -42,7 +42,6 @@ class NLPService:
                 json_str = text.strip()
                 
         return json.loads(json_str)
-
     def message_processor(self, user_message: str) -> Transaction:
         """
         Analyzes a natural language message and extracts transaction details.
