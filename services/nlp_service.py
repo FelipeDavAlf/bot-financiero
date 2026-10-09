@@ -1,5 +1,4 @@
 from google import genai
-from google.genai import types
 import json
 from datetime import date
 from core.models import Transaction, TransactionList

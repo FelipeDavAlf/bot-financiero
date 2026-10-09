@@ -1,4 +1,3 @@
-import asyncio
 from google import genai
 import time
 from core.config import settings

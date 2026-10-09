@@ -1,7 +1,6 @@
 import asyncio
 from services.nlp_service import NLPService
 import traceback
-from google.genai import types
 
 async def main():
     nlp = NLPService()
@@ -23,7 +22,7 @@ RELEASE_DATE;TRANSACTION_TYPE;REFERENCE_ID;TRANSACTION_NET_AMOUNT;PARTIAL_BALANC
             contents=["Extrae las transacciones en JSON. Debe empezar con { y terminar con }.", document_file]
         )
         print("Response:", response.text)
-    except Exception as e:
+    except Exception:
         print("Error:")
         traceback.print_exc()
 
