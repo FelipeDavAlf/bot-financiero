@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional, Literal
+from typing import Optional, Literal, List
 from datetime import date
 
 class Transaction(BaseModel):
@@ -20,3 +20,7 @@ class Transaction(BaseModel):
     category: str
     subcategory: str
     description: str
+
+class TransactionList(BaseModel):
+    """Modelo para representar una lista de transacciones en cargas masivas (PDF/Excel)"""
+    transactions: List[Transaction]
