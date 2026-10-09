@@ -119,8 +119,8 @@ class TelegramBot:
             # Guardamos en bloque
             added_count, duplicate_count = self.sheets_service.append_transactions(transactions)
             
-            response = f"✅ **Documento procesado con éxito**\n\n"
-            response += f"📊 **Resumen:**\n"
+            response = "✅ **Documento procesado con éxito**\n\n"
+            response += "📊 **Resumen:**\n"
             response += f"- ➕ {added_count} transacciones nuevas guardadas.\n"
             response += f"- ⏭️ {duplicate_count} transacciones ignoradas por ser duplicadas."
             
