@@ -154,7 +154,7 @@ class NLPService:
                         df = pd.read_csv(doc_path, sep=";")
                         if len(df.columns) < 2:
                             df = pd.read_csv(doc_path, sep=",")
-                    except:
+                    except Exception:
                         df = pd.read_csv(doc_path)
                 else:
                     df = pd.read_excel(doc_path)
