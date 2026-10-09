@@ -22,17 +22,6 @@ class NLPService:
         """
         self.client = genai.Client(api_key=settings.GEMINI_API_KEY)
 
-    def _extract_json(self, text: str) -> dict:
-        """Limpia la respuesta de Gemini para extraer el JSON válido (por si incluye bloques de markdown)"""
-        text = text.strip()
-        if text.startswith("```json"):
-            text = text[7:]
-        elif text.startswith("```"):
-            text = text[3:]
-        if text.endswith("```"):
-            text = text[:-3]
-        return json.loads(text.strip())
-
     def message_processor(self, user_message: str) -> Transaction:
         """
         Analyzes a natural language message and extracts transaction details.
@@ -75,10 +64,14 @@ class NLPService:
         
         response = self.client.models.generate_content(
             model='gemini-2.5-flash',
-            contents=prompt
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                temperature=0.0 
+            )
         )
         
-        data = self._extract_json(response.text)
+        data = json.loads(response.text)
         return Transaction(**data)
 
     def process_audio(self, audio_path: str) -> Transaction:
@@ -106,13 +99,17 @@ class NLPService:
         
         response = self.client.models.generate_content(
             model='gemini-2.5-flash',
-            contents=[prompt, audio_file]
+            contents=[prompt, audio_file],
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                temperature=0.0 
+            )
         )
         
         # Limpieza del archivo en el servidor de Google
         audio_file.delete()
         
-        data = self._extract_json(response.text)
+        data = json.loads(response.text)
         return Transaction(**data)
 
     def process_document(self, doc_path: str) -> list[Transaction]:
@@ -140,12 +137,16 @@ class NLPService:
         
         response = self.client.models.generate_content(
             model='gemini-2.5-flash',
-            contents=[prompt, document_file]
+            contents=[prompt, document_file],
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                temperature=0.0 
+            )
         )
         
         document_file.delete()
         
-        data = self._extract_json(response.text)
+        data = json.loads(response.text)
         # Parseamos con el modelo de lista
         transaction_list = TransactionList(**data)
         return transaction_list.transactions
