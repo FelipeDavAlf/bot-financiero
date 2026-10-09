@@ -117,14 +117,14 @@ class NLPService:
         Processes a PDF, CSV, or Excel file and extracts multiple transactions.
         """
         prompt = """
-        Eres un asistente financiero experto. Analiza el siguiente estado de cuenta o documento financiero.
+        Eres un asistente financiero experto. Analiza el siguiente estado de cuenta o documento financiero (puede ser CSV, Excel o PDF).
         Extrae TODAS las transacciones válidas que encuentres.
         Clasifica los pagos a la propia tarjeta de crédito como un "Traspaso", asignando la cuenta de origen (si se menciona) y como destino la tarjeta de crédito que se está pagando. Ignora saldo anterior o conceptos informativos que no sean gastos, ingresos o traspasos reales del periodo.
         Devuelve ÚNICAMENTE un JSON válido que contenga un objeto con la llave "transactions", el cual debe ser un arreglo de transacciones.
-        Cada transacción debe cumplir esta estructura:
-        - date (YYYY-MM-DD)
-        - transaction_type ("Ingreso", "Gasto" o "Traspaso")
-        - amount (número positivo)
+        Cada transacción debe cumplir esta estructura ESTRICTAMENTE:
+        - date (YYYY-MM-DD). Convierte cualquier fecha (ej. DD-MM-YYYY o DD/MM/YY) obligatoriamente al formato YYYY-MM-DD.
+        - transaction_type ("Ingreso", "Gasto" o "Traspaso"). Si el monto era negativo, generalmente es un "Gasto".
+        - amount (número). El monto SIEMPRE debe ser un valor numérico POSITIVO (mayor a 0). Elimina el signo negativo si lo tiene.
         - source_account (string o null). DEBE ser EXACTAMENTE una de esta lista: ["Efectivo", "Tarjeta Débito BBVA", "Tarjeta Débito Stori", "Tarjeta Crédito BBVA", "Tarjeta Crédito Stori", "Tarjeta Crédito Rappi", "Tarjeta Crédito Nu", "Tarjeta Débito Nu", "Cuenta Mercado Pago"]. Infiérelo del documento o déjalo en null.
         - destination_account (string o null).
         - category (string). DEBE ser EXACTAMENTE una de esta lista: [Salario, Rendimientos, Alimentación, Vivienda y Servicios, Transporte, Suscripciones, Ocio y Entretenimiento, Salud y Cuidado, Mascotas, Ahorro e Inversión, Otros, Traspaso].
