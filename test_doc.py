@@ -9,7 +9,7 @@ async def main():
         print("Ejemplo: python test_doc.py estado_de_cuenta.pdf")
         return
         
-    file_path = sys.argv[1]
+    file_path = sys.argv[1] 
     nlp = NLPService()
     
     try:
