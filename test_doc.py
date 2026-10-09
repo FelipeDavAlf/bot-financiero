@@ -1,29 +1,29 @@
 import asyncio
-from services.nlp_service import NLPService
+import sys
 import traceback
+from services.nlp_service import NLPService
 
 async def main():
+    if len(sys.argv) < 2:
+        print("Uso: python test_doc.py <ruta_al_archivo>")
+        print("Ejemplo: python test_doc.py estado_de_cuenta.pdf")
+        return
+        
+    file_path = sys.argv[1]
     nlp = NLPService()
     
-    csv_content = """INITIAL_BALANCE;CREDITS;DEBITS;FINAL_BALANCE
-0.00;25;210.59;-25;210.59;0.00
-
-RELEASE_DATE;TRANSACTION_TYPE;REFERENCE_ID;TRANSACTION_NET_AMOUNT;PARTIAL_BALANCE
-02-09-2026;Transferencia recibida;176884;800.00;800.00"""
-    
-    with open("test.csv", "w", encoding="utf-8") as f:
-        f.write(csv_content)
-        
     try:
-        print("Testing gemini-2.5-flash without response_mime_type...")
-        document_file = nlp.client.files.upload(file="test.csv")
-        response = nlp.client.models.generate_content(
-            model='gemini-3.8-flash',
-            contents=["Extrae las transacciones en JSON. Debe empezar con { y terminar con }.", document_file]
-        )
-        print("Response:", response.text)
+        print(f"Probando procesar el archivo: {file_path}")
+        print("Enviando a Gemini... (esperando a que lo procese internamente)")
+        
+        transactions = nlp.process_document(file_path)
+        
+        print(f"\n✅ ¡Éxito! Se extrajeron {len(transactions)} transacciones.")
+        for t in transactions:
+            print(f"- {t.date} | {t.transaction_type} | ${t.amount} | {t.description} | {t.source_account}")
+            
     except Exception:
-        print("Error:")
+        print("\n❌ ERROR OCURRIDO:")
         traceback.print_exc()
 
 if __name__ == "__main__":
