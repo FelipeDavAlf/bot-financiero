@@ -132,14 +132,14 @@ class NLPService:
         data = self._extract_json(response.text)
         return Transaction(**data)
 
-    def process_document(self, doc_path: str) -> list[Transaction]:
+    def extract_document_text(self, doc_path: str) -> str:
         """
-        Processes a PDF, CSV, or Excel file and extracts multiple transactions.
+        Extracts raw tabular text from a PDF, CSV, or Excel file locally.
         """
         import os
         ext = os.path.splitext(doc_path)[1].lower()
         extracted_text = ""
-        
+
         try:
             if ext == ".pdf":
                 from pypdf import PdfReader
@@ -149,7 +149,7 @@ class NLPService:
             elif ext in [".csv", ".xlsx", ".xls"]:
                 import pandas as pd
                 if ext == ".csv":
-                    # Mercado Pago usa punto y coma frecuentemente, probamos ambos
+                    # Mercado Pago frequently uses semicolons, attempt both
                     try:
                         df = pd.read_csv(doc_path, sep=";")
                         if len(df.columns) < 2:
@@ -158,16 +158,22 @@ class NLPService:
                         df = pd.read_csv(doc_path)
                 else:
                     df = pd.read_excel(doc_path)
-                
+
                 extracted_text = df.to_csv(index=False, sep=";")
             else:
-                raise Exception(f"Formato no soportado: {ext}")
+                raise ValueError(f"Formato no soportado: {ext}")
         except Exception as e:
             raise Exception(f"Error extrayendo texto del documento localmente: {e}")
 
         if not extracted_text.strip():
             raise Exception("No se pudo extraer texto del documento. Asegúrate de que no esté vacío o sea solo imágenes.")
-            
+
+        return extracted_text
+
+    def parse_transactions_from_text(self, extracted_text: str) -> list[Transaction]:
+        """
+        Sends extracted document text to Gemini and parses structured transactions.
+        """
         prompt = f"""
         Eres un asistente financiero experto. Analiza el siguiente estado de cuenta o documento financiero extraído a texto.
         Extrae TODAS las transacciones válidas que encuentres.
@@ -186,13 +192,19 @@ class NLPService:
         Aquí está el contenido del documento:
         {extracted_text}
         """
-        
+
         response = self.client.models.generate_content(
             model='gemini-2.5-flash',
             contents=prompt
         )
-        
+
         data = self._extract_json(response.text)
-        # Parseamos con el modelo de lista
         transaction_list = TransactionList(**data)
         return transaction_list.transactions
+
+    def process_document(self, doc_path: str) -> list[Transaction]:
+        """
+        Processes a PDF, CSV, or Excel file and extracts multiple transactions.
+        """
+        extracted_text = self.extract_document_text(doc_path)
+        return self.parse_transactions_from_text(extracted_text)
