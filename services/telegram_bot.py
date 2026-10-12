@@ -1,3 +1,4 @@
+import asyncio
 from enum import Enum
 import logging
 import os
@@ -85,8 +86,8 @@ class TelegramBot:
         status_message = await update.message.reply_text("⏳ Procesando transacción...")
         
         try:
-            transaction = self.nlp_service.message_processor(user_message)
-            added = self.sheets_service.append_transaction(transaction)
+            transaction = await asyncio.to_thread(self.nlp_service.message_processor, user_message)
+            added = await asyncio.to_thread(self.sheets_service.append_transaction, transaction)
             
             if added:
                 response = f"✅ **Transacción guardada exitosamente**\n\n{self._format_transaction_response(transaction)}"
@@ -116,10 +117,10 @@ class TelegramBot:
             await self._update_status(status_message, "🤖 **Analizando audio:** Interpretando transacción con Gemini...")
             await context.bot.send_chat_action(chat_id=chat_id, action=ChatAction.TYPING)
             
-            transaction = self.nlp_service.process_audio(file_path)
+            transaction = await asyncio.to_thread(self.nlp_service.process_audio, file_path)
             
             await self._update_status(status_message, "📊 **Guardando transacción:** Sincronizando con Google Sheets...")
-            added = self.sheets_service.append_transaction(transaction)
+            added = await asyncio.to_thread(self.sheets_service.append_transaction, transaction)
             
             if added:
                 response = f"✅ **Audio procesado y guardado**\n\n{self._format_transaction_response(transaction)}"
@@ -162,7 +163,7 @@ class TelegramBot:
                 status_message,
                 DOCUMENT_STATE_MESSAGES[DocumentProcessingState.EXTRACTING]
             )
-            extracted_text = self.nlp_service.extract_document_text(file_path)
+            extracted_text = await asyncio.to_thread(self.nlp_service.extract_document_text, file_path)
             
             # State: Analyzing with AI
             await context.bot.send_chat_action(chat_id=chat_id, action=ChatAction.TYPING)
@@ -170,7 +171,7 @@ class TelegramBot:
                 status_message,
                 DOCUMENT_STATE_MESSAGES[DocumentProcessingState.ANALYZING]
             )
-            transactions = self.nlp_service.parse_transactions_from_text(extracted_text)
+            transactions = await asyncio.to_thread(self.nlp_service.parse_transactions_from_text, extracted_text)
             
             if not transactions:
                 await self._update_status(status_message, "⚠️ No encontré ninguna transacción válida en este documento.")
@@ -181,7 +182,7 @@ class TelegramBot:
                 status_message,
                 DOCUMENT_STATE_MESSAGES[DocumentProcessingState.SAVING]
             )
-            added_count, duplicate_count = self.sheets_service.append_transactions(transactions)
+            added_count, duplicate_count = await asyncio.to_thread(self.sheets_service.append_transactions, transactions)
             
             response = "✅ **Documento procesado con éxito**\n\n"
             response += "📊 **Resumen:**\n"

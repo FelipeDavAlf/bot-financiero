@@ -1,5 +1,7 @@
 from google import genai
+from google.genai import types
 import json
+import logging
 from datetime import date
 from core.models import Transaction, TransactionList
 from core.config import settings
@@ -82,9 +84,14 @@ class NLPService:
         Mensaje del usuario: "{user_message}"
         """
         
+        config = types.GenerateContentConfig(
+            thinking_config=types.ThinkingConfig(thinking_budget=0),
+            temperature=0.1,
+        )
         response = self.client.models.generate_content(
             model='gemini-2.5-flash',
-            contents=prompt
+            contents=prompt,
+            config=config,
         )
         
         data = self._extract_json(response.text)
@@ -121,9 +128,14 @@ class NLPService:
         if audio_file.state.name == "FAILED":
             raise Exception("Google falló al procesar el audio.")
         
+        config = types.GenerateContentConfig(
+            thinking_config=types.ThinkingConfig(thinking_budget=0),
+            temperature=0.1,
+        )
         response = self.client.models.generate_content(
             model='gemini-2.5-flash',
-            contents=[prompt, audio_file]
+            contents=[prompt, audio_file],
+            config=config,
         )
         
         # Limpieza del archivo en el servidor de Google
@@ -145,7 +157,9 @@ class NLPService:
                 from pypdf import PdfReader
                 reader = PdfReader(doc_path)
                 for page in reader.pages:
-                    extracted_text += page.extract_text() + "\n"
+                    page_text = page.extract_text() or ""
+                    if page_text:
+                        extracted_text += page_text + "\n"
             elif ext in [".csv", ".xlsx", ".xls"]:
                 import pandas as pd
                 if ext == ".csv":
@@ -168,6 +182,7 @@ class NLPService:
         if not extracted_text.strip():
             raise Exception("No se pudo extraer texto del documento. Asegúrate de que no esté vacío o sea solo imágenes.")
 
+        logging.info(f"Extracted {len(extracted_text)} characters from {doc_path}")
         return extracted_text
 
     def parse_transactions_from_text(self, extracted_text: str) -> list[Transaction]:
@@ -193,13 +208,19 @@ class NLPService:
         {extracted_text}
         """
 
+        config = types.GenerateContentConfig(
+            thinking_config=types.ThinkingConfig(thinking_budget=0),
+            temperature=0.1,
+        )
         response = self.client.models.generate_content(
             model='gemini-2.5-flash',
-            contents=prompt
+            contents=prompt,
+            config=config,
         )
 
         data = self._extract_json(response.text)
         transaction_list = TransactionList(**data)
+        logging.info(f"Parsed {len(transaction_list.transactions)} transactions with Gemini.")
         return transaction_list.transactions
 
     def process_document(self, doc_path: str) -> list[Transaction]:
