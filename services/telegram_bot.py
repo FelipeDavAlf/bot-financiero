@@ -2,14 +2,22 @@ import asyncio
 from enum import Enum
 import logging
 import os
-import uuid
 from typing import Optional
+import uuid
 from telegram import Update
 from telegram.constants import ChatAction
-from telegram.ext import Application, MessageHandler, filters, ContextTypes
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 from services.nlp_service import NLPService
 from services.sheets_service import SheetsService
 from services.ingestion_service import TransactionIngestionService
+from services.bot_messages import (
+    WELCOME_MESSAGE,
+    HELP_MESSAGE,
+    ACCOUNTS_MESSAGE,
+    CATEGORIES_MESSAGE,
+    NON_TRANSACTION_FALLBACK_MESSAGE,
+    is_greeting_or_help_intent,
+)
 from core.config import settings
 
 # Logging configuration to see background errors in the terminal
@@ -60,6 +68,12 @@ class TelegramBot:
             .build()
         )
         
+        # Command handlers for welcome, help, accounts and categories
+        self.app.add_handler(CommandHandler("start", self.handle_start))
+        self.app.add_handler(CommandHandler("help", self.handle_help))
+        self.app.add_handler(CommandHandler("cuentas", self.handle_cuentas))
+        self.app.add_handler(CommandHandler("categorias", self.handle_categorias))
+        
         # Listen for any text message that is NOT a command (like /start)
         self.app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
         # Listen for voice notes
@@ -73,6 +87,22 @@ class TelegramBot:
             await message.edit_text(text, parse_mode="Markdown")
         except Exception as exc:
             logging.debug(f"Could not edit status message: {exc}")
+
+    async def handle_start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Sends the detailed welcome message."""
+        await update.message.reply_text(WELCOME_MESSAGE, parse_mode="Markdown")
+
+    async def handle_help(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Sends the usage guide and examples."""
+        await update.message.reply_text(HELP_MESSAGE, parse_mode="Markdown")
+
+    async def handle_cuentas(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Sends the list of supported accounts and payment methods."""
+        await update.message.reply_text(ACCOUNTS_MESSAGE, parse_mode="Markdown")
+
+    async def handle_categorias(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Sends the list of supported categories."""
+        await update.message.reply_text(CATEGORIES_MESSAGE, parse_mode="Markdown")
 
     def _format_transaction_response(self, transaction) -> str:
         return (
@@ -90,11 +120,21 @@ class TelegramBot:
         """Processes incoming text messages asynchronously."""
         user_message = update.message.text
         chat_id = update.effective_chat.id
+
+        # Fast recognition for greetings and general information requests
+        if is_greeting_or_help_intent(user_message):
+            await update.message.reply_text(WELCOME_MESSAGE, parse_mode="Markdown")
+            return
+
         await context.bot.send_chat_action(chat_id=chat_id, action=ChatAction.TYPING)
         status_message = await update.message.reply_text("⏳ Procesando transacción...")
         
         try:
             transaction = await asyncio.to_thread(self.nlp_service.message_processor, user_message)
+            if not transaction:
+                await self._update_status(status_message, NON_TRANSACTION_FALLBACK_MESSAGE)
+                return
+
             ingestion_result = await asyncio.to_thread(self.ingestion_service.ingest_transaction, transaction)
             
             if ingestion_result.success:
@@ -128,6 +168,12 @@ class TelegramBot:
             await context.bot.send_chat_action(chat_id=chat_id, action=ChatAction.TYPING)
             
             transaction = await asyncio.to_thread(self.nlp_service.process_audio, file_path)
+            if not transaction:
+                await self._update_status(
+                    status_message,
+                    "🤔 No identifiqué ninguna transacción financiera en tu nota de voz. Por favor intenta grabar de nuevo mencionando el monto y el concepto claramente (ej. 'Gasté 80 pesos en comida')."
+                )
+                return
             
             await self._update_status(status_message, "📊 **Guardando transacción:** Sincronizando con Google Sheets...")
             ingestion_result = await asyncio.to_thread(self.ingestion_service.ingest_transaction, transaction)
