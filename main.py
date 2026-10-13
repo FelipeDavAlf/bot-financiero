@@ -9,6 +9,7 @@ from telegram import Update
 from core.config import settings
 from services.nlp_service import NLPService
 from services.sheets_service import SheetsService
+from services.ingestion_service import TransactionIngestionService
 from services.telegram_bot import TelegramBot
 
 logging.basicConfig(
@@ -18,7 +19,12 @@ logging.basicConfig(
 # 1. Global services instantiation
 nlp_service = NLPService()
 sheets_service = SheetsService(spreadsheet_name="Finanzas personales")
-bot = TelegramBot(nlp_service=nlp_service, sheets_service=sheets_service)
+ingestion_service = TransactionIngestionService(sheets_service=sheets_service)
+bot = TelegramBot(
+    nlp_service=nlp_service,
+    sheets_service=sheets_service,
+    ingestion_service=ingestion_service,
+)
 
 # Cache to track processed updates and prevent Telegram retry duplicates
 MAX_PROCESSED_UPDATES = 2000
