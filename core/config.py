@@ -8,7 +8,16 @@ class Settings:
     TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "").strip()
     GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
     SHEETS_CREDENTIALS = os.getenv("GOOGLE_SHEETS_CREDENTIALS_FILE", "credentials.json").strip()
-    WEBHOOK_URL = os.getenv("WEBHOOK_URL", "").strip()  # Solo se usa en producción (Render)
+    WEBHOOK_URL = os.getenv("WEBHOOK_URL", "").strip()  # Only used in production (Render)
+    DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./finanzas.db").strip()
 
-# Instanciamos la configuración para usarla en otros archivos
+    @property
+    def normalized_database_url(self) -> str:
+        """Returns the normalized database URL, converting legacy postgres:// to postgresql://."""
+        url = self.DATABASE_URL
+        if url.startswith("postgres://"):
+            url = url.replace("postgres://", "postgresql://", 1)
+        return url
+
+# Instantiating settings for global access
 settings = Settings()
