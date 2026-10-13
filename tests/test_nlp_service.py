@@ -30,7 +30,33 @@ def test_process_message_success(mock_genai_client_class):
     transaction = nlp.message_processor("Gasté 150 en una pizza con tarjeta de débito")
 
     # 3. Validamos que el JSON se haya convertido perfectamente a tu Pydantic model
+    assert transaction is not None
     assert transaction.amount == 150.0
     assert transaction.category == "Comida"
     assert transaction.transaction_type == "Gasto"
     assert transaction.source_account == "Tarjeta Débito"
+
+
+@patch('services.nlp_service.genai.Client')
+def test_process_message_non_transaction(mock_genai_client_class):
+    mock_client_instance = MagicMock()
+    mock_response = MagicMock()
+    mock_response.text = '{"is_transaction": false}'
+    mock_client_instance.models.generate_content.return_value = mock_response
+    mock_genai_client_class.return_value = mock_client_instance
+
+    nlp = NLPService()
+    transaction = nlp.message_processor("Hola, ¿cómo estás hoy?")
+
+    assert transaction is None
+
+
+def test_greeting_intent_detection():
+    from services.bot_messages import is_greeting_or_help_intent
+
+    assert is_greeting_or_help_intent("Hola")
+    assert is_greeting_or_help_intent("buenos días")
+    assert is_greeting_or_help_intent("ayuda")
+    assert is_greeting_or_help_intent("info")
+    assert not is_greeting_or_help_intent("Gasté 100 pesos en tacos")
+    assert not is_greeting_or_help_intent("Pagué la luz")

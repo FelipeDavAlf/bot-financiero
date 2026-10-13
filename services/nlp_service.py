@@ -1,3 +1,4 @@
+from typing import Optional
 from google import genai
 from google.genai import types
 import json
@@ -57,29 +58,40 @@ class NLPService:
                 (e.g., "I spent 120 on chilaquiles with my debit card").
 
         Returns:
-            Transaction: A validated Pydantic model containing the structured 
-                transaction data (date, type, amount, categories, etc.).
-
-        Raises:
-            json.JSONDecodeError: If the model fails to return a valid JSON string.
-            pydantic.ValidationError: If the extracted data does not match the 
-                expected Transaction schema.
-            Exception: For any API or connection errors with Google GenAI.
+            Optional[Transaction]: A validated Transaction model or None if the message
+                does not describe a financial movement.
         """
         today = date.today().isoformat()
         
         prompt = f"""
         Hoy es {today}. Eres un asistente financiero muy preciso.
-        Analiza el siguiente mensaje y extrae los datos de la transacción.
-        Devuelve ÚNICAMENTE un JSON válido que cumpla con esta estructura:
-        - date (YYYY-MM-DD, usa la fecha de hoy si no se especifica)
-        - transaction_type ("Ingreso", "Gasto" o "Traspaso")
-        - amount (número positivo)
-        - source_account (string o null). DEBE ser EXACTAMENTE una de esta lista: ["Efectivo", "Tarjeta Débito BBVA", "Tarjeta Débito Stori", "Tarjeta Crédito BBVA", "Tarjeta Crédito Stori", "Tarjeta Crédito Rappi", "Tarjeta Crédito Nu", "Tarjeta Débito Nu", "Cuenta Mercado Pago"]. Si el mensaje no lo menciona, infiérelo lógicamente o déjalo en null.
-        - destination_account (string o null). DEBE ser EXACTAMENTE una de la misma lista anterior. Usualmente aplica para "Traspaso" o "Ingreso". Si el mensaje no lo menciona, infiérelo lógicamente o déjalo en null.
-        - category (string). DEBE ser EXACTAMENTE una de esta lista: [Salario, Rendimientos, Alimentación, Vivienda y Servicios, Transporte, Suscripciones, Ocio y Entretenimiento, Salud y Cuidado, Mascotas, Ahorro e Inversión, Otros, Traspaso].
-        - subcategory (string). Asigna una etiqueta corta (1 a 3 palabras) para el detalle. Ejemplos: si category es "Transporte", subcategory puede ser "Uber" o "Gasolina". Si es "Mascotas", puede ser "Arena" o "Comida". Si es "Ocio y Entretenimiento", puede ser "Videojuegos", "Conciertos" o "Cafetería".
-        - description (string)
+        Determina si el siguiente mensaje describe una transacción financiera real (ingreso, gasto o traspaso de dinero).
+        
+        Si el mensaje NO describe un movimiento financiero (por ejemplo: si es un saludo, una pregunta general, agradecimiento, texto casual o no menciona montos ni conceptos de dinero), devuelve ÚNICAMENTE este JSON:
+        {{"is_transaction": false}}
+
+        Si el mensaje SÍ describe un movimiento financiero, devuelve ÚNICAMENTE un JSON válido con esta estructura:
+        {{
+            "is_transaction": true,
+            "date": "YYYY-MM-DD",
+            "transaction_type": "Ingreso", "Gasto" o "Traspaso",
+            "amount": número_positivo,
+            "source_account": string o null,
+            "destination_account": string o null,
+            "category": string,
+            "subcategory": string,
+            "description": string
+        }}
+
+        Reglas para los campos si es una transacción:
+        - date: YYYY-MM-DD (usa la fecha de hoy si no se especifica).
+        - transaction_type: "Ingreso", "Gasto" o "Traspaso".
+        - amount: número positivo mayor a 0.
+        - source_account: string o null. DEBE ser EXACTAMENTE una de esta lista: ["Efectivo", "Tarjeta Débito BBVA", "Tarjeta Débito Stori", "Tarjeta Crédito BBVA", "Tarjeta Crédito Stori", "Tarjeta Crédito Rappi", "Tarjeta Crédito Nu", "Tarjeta Débito Nu", "Cuenta Mercado Pago"]. Si no lo menciona, infiérelo lógicamente o déjalo en null.
+        - destination_account: string o null. DEBE ser EXACTAMENTE una de la misma lista anterior. Usualmente aplica para "Traspaso" o "Ingreso". Si no lo menciona, infiérelo lógicamente o déjalo en null.
+        - category: string. DEBE ser EXACTAMENTE una de esta lista: [Salario, Rendimientos, Alimentación, Vivienda y Servicios, Transporte, Suscripciones, Ocio y Entretenimiento, Salud y Cuidado, Mascotas, Ahorro e Inversión, Otros, Traspaso].
+        - subcategory: Asigna una etiqueta corta (1 a 3 palabras) para el detalle.
+        - description: Descripción clara del movimiento o nombre del comercio.
 
         Mensaje del usuario: "{user_message}"
         """
@@ -95,26 +107,48 @@ class NLPService:
         )
         
         data = self._extract_json(response.text)
+        if data.get("is_transaction") is False or not data.get("amount"):
+            return None
+
+        data.pop("is_transaction", None)
         return Transaction(**data)
 
-    def process_audio(self, audio_path: str) -> Transaction:
+    def process_audio(self, audio_path: str) -> Optional[Transaction]:
         """
         Processes a voice note using Gemini's native audio capabilities.
+        Returns None if the voice note does not describe a financial transaction.
         """
         today = date.today().isoformat()
         
         prompt = f"""
         Hoy es {today}. Eres un asistente financiero muy preciso.
-        Escucha el siguiente audio y extrae los datos de la transacción.
-        Devuelve ÚNICAMENTE un JSON válido que cumpla con esta estructura:
-        - date (YYYY-MM-DD, usa la fecha de hoy si no se especifica)
-        - transaction_type ("Ingreso", "Gasto" o "Traspaso")
-        - amount (número positivo)
-        - source_account (string o null). DEBE ser EXACTAMENTE una de esta lista: ["Efectivo", "Tarjeta Débito BBVA", "Tarjeta Débito Stori", "Tarjeta Crédito BBVA", "Tarjeta Crédito Stori", "Tarjeta Crédito Rappi", "Tarjeta Crédito Nu", "Tarjeta Débito Nu", "Cuenta Mercado Pago"]. Si el audio no lo menciona, infiérelo lógicamente o déjalo en null.
-        - destination_account (string o null). DEBE ser EXACTAMENTE una de la misma lista anterior. Usualmente aplica para "Traspaso" o "Ingreso". Si el audio no lo menciona, infiérelo lógicamente o déjalo en null.
-        - category (string). DEBE ser EXACTAMENTE una de esta lista: [Salario, Rendimientos, Alimentación, Vivienda y Servicios, Transporte, Suscripciones, Ocio y Entretenimiento, Salud y Cuidado, Mascotas, Ahorro e Inversión, Otros, Traspaso].
-        - subcategory (string). Asigna una etiqueta corta (1 a 3 palabras) para el detalle.
-        - description (string)
+        Escucha el siguiente audio y determina si describe una transacción financiera real.
+        
+        Si el audio NO describe una transacción financiera (por ejemplo: saludo, silencio, conversación casual sin montos), devuelve ÚNICAMENTE:
+        {{"is_transaction": false}}
+
+        Si SÍ describe una transacción financiera, devuelve ÚNICAMENTE un JSON válido que cumpla con esta estructura:
+        {{
+            "is_transaction": true,
+            "date": "YYYY-MM-DD",
+            "transaction_type": "Ingreso", "Gasto" o "Traspaso",
+            "amount": número_positivo,
+            "source_account": string o null,
+            "destination_account": string o null,
+            "category": string,
+            "subcategory": string,
+            "description": string
+        }}
+
+        Reglas para los campos si es una transacción:
+        - date: YYYY-MM-DD (usa la fecha de hoy si no se especifica).
+        - transaction_type: "Ingreso", "Gasto" o "Traspaso".
+        - amount: número positivo mayor a 0.
+        - source_account: string o null. DEBE ser EXACTAMENTE una de esta lista: ["Efectivo", "Tarjeta Débito BBVA", "Tarjeta Débito Stori", "Tarjeta Crédito BBVA", "Tarjeta Crédito Stori", "Tarjeta Crédito Rappi", "Tarjeta Crédito Nu", "Tarjeta Débito Nu", "Cuenta Mercado Pago"].
+        - destination_account: string o null. DEBE ser EXACTAMENTE una de la misma lista anterior.
+        - category: string. DEBE ser EXACTAMENTE una de esta lista: [Salario, Rendimientos, Alimentación, Vivienda y Servicios, Transporte, Suscripciones, Ocio y Entretenimiento, Salud y Cuidado, Mascotas, Ahorro e Inversión, Otros, Traspaso].
+        - subcategory: Asigna una etiqueta corta (1 a 3 palabras) para el detalle.
+        - description: Descripción clara del movimiento.
         """
         
         # Subimos el archivo a la API de Gemini
@@ -142,6 +176,10 @@ class NLPService:
         audio_file.delete()
         
         data = self._extract_json(response.text)
+        if data.get("is_transaction") is False or not data.get("amount"):
+            return None
+
+        data.pop("is_transaction", None)
         return Transaction(**data)
 
     def extract_document_text(self, doc_path: str) -> str:
