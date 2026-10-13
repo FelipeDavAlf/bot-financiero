@@ -3,8 +3,9 @@ from google import genai
 from google.genai import types
 import json
 import logging
-from datetime import date
+from datetime import date, timedelta
 from core.models import Transaction, TransactionList
+from core.validators.duplicate_validator import normalize_amount, normalize_date
 from core.config import settings
 
 class NLPService:
