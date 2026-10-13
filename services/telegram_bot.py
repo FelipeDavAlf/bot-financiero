@@ -3,11 +3,13 @@ from enum import Enum
 import logging
 import os
 import uuid
+from typing import Optional
 from telegram import Update
 from telegram.constants import ChatAction
 from telegram.ext import Application, MessageHandler, filters, ContextTypes
 from services.nlp_service import NLPService
 from services.sheets_service import SheetsService
+from services.ingestion_service import TransactionIngestionService
 from core.config import settings
 
 # Logging configuration to see background errors in the terminal
@@ -37,12 +39,18 @@ DOCUMENT_STATE_MESSAGES = {
 class TelegramBot:
     """
     Handles the Telegram interface, receiving user messages and orchestrating 
-    the NLP processing and database storage.
+    the NLP processing and database storage via the modular Ingestion Service.
     """
 
-    def __init__(self, nlp_service: NLPService, sheets_service: SheetsService):
+    def __init__(
+        self,
+        nlp_service: NLPService,
+        sheets_service: SheetsService,
+        ingestion_service: Optional[TransactionIngestionService] = None,
+    ):
         self.nlp_service = nlp_service
         self.sheets_service = sheets_service
+        self.ingestion_service = ingestion_service or TransactionIngestionService(sheets_service=sheets_service)
         self.app = (
             Application.builder()
             .token(settings.TELEGRAM_TOKEN)
@@ -87,12 +95,14 @@ class TelegramBot:
         
         try:
             transaction = await asyncio.to_thread(self.nlp_service.message_processor, user_message)
-            added = await asyncio.to_thread(self.sheets_service.append_transaction, transaction)
+            ingestion_result = await asyncio.to_thread(self.ingestion_service.ingest_transaction, transaction)
             
-            if added:
+            if ingestion_result.success:
                 response = f"✅ **Transacción guardada exitosamente**\n\n{self._format_transaction_response(transaction)}"
-            else:
+            elif ingestion_result.is_duplicate:
                 response = f"⚠️ **Transacción duplicada ignorada**\n\nYa habías registrado algo idéntico:\n{self._format_transaction_response(transaction)}"
+            else:
+                response = f"❌ {ingestion_result.error_message or 'Error al procesar la transacción.'}"
                 
             await self._update_status(status_message, response)
         except Exception as e:
@@ -120,12 +130,14 @@ class TelegramBot:
             transaction = await asyncio.to_thread(self.nlp_service.process_audio, file_path)
             
             await self._update_status(status_message, "📊 **Guardando transacción:** Sincronizando con Google Sheets...")
-            added = await asyncio.to_thread(self.sheets_service.append_transaction, transaction)
+            ingestion_result = await asyncio.to_thread(self.ingestion_service.ingest_transaction, transaction)
             
-            if added:
+            if ingestion_result.success:
                 response = f"✅ **Audio procesado y guardado**\n\n{self._format_transaction_response(transaction)}"
-            else:
+            elif ingestion_result.is_duplicate:
                 response = f"⚠️ **Transacción duplicada (desde audio)**\n\nYa existía este registro:\n{self._format_transaction_response(transaction)}"
+            else:
+                response = f"❌ {ingestion_result.error_message or 'Error al procesar el audio.'}"
                 
             await self._update_status(status_message, response)
         except Exception as e:
@@ -182,12 +194,14 @@ class TelegramBot:
                 status_message,
                 DOCUMENT_STATE_MESSAGES[DocumentProcessingState.SAVING]
             )
-            added_count, duplicate_count = await asyncio.to_thread(self.sheets_service.append_transactions, transactions)
+            batch_result = await asyncio.to_thread(self.ingestion_service.ingest_batch, transactions)
             
             response = "✅ **Documento procesado con éxito**\n\n"
             response += "📊 **Resumen:**\n"
-            response += f"- ➕ {added_count} transacciones nuevas guardadas.\n"
-            response += f"- ⏭️ {duplicate_count} transacciones ignoradas por ser duplicadas."
+            response += f"- ➕ {batch_result.added_count} transacciones nuevas guardadas.\n"
+            response += f"- ⏭️ {batch_result.duplicate_count} transacciones ignoradas por ser duplicadas."
+            if batch_result.invalid_count > 0:
+                response += f"\n- ⚠️ {batch_result.invalid_count} transacciones descartadas por datos incompletos o erróneos."
             
             await self._update_status(status_message, response)
         except Exception as e:
