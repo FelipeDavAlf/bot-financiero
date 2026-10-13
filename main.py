@@ -7,6 +7,9 @@ from fastapi import BackgroundTasks, FastAPI, Request, Response
 from telegram import Update
 
 from core.config import settings
+from core.database.session import SessionLocal, init_db
+from repositories.user_repository import UserRepository
+from repositories.transaction_repository import TransactionRepository
 from services.nlp_service import NLPService
 from services.sheets_service import SheetsService
 from services.ingestion_service import TransactionIngestionService
@@ -16,14 +19,28 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
 )
 
-# 1. Global services instantiation
+# 1. Global database and services instantiation
+init_db()
+db_session = SessionLocal()
+user_repository = UserRepository(db=db_session)
+transaction_repository = TransactionRepository(db=db_session)
+
 nlp_service = NLPService()
-sheets_service = SheetsService(spreadsheet_name="Finanzas personales")
-ingestion_service = TransactionIngestionService(sheets_service=sheets_service)
+try:
+    sheets_service = SheetsService(spreadsheet_name="Finanzas personales")
+except Exception as exc:
+    logging.warning(f"Could not initialize SheetsService, continuing in DB-only mode: {exc}")
+    sheets_service = None
+
+ingestion_service = TransactionIngestionService(
+    transaction_repository=transaction_repository,
+    sheets_service=sheets_service,
+)
 bot = TelegramBot(
     nlp_service=nlp_service,
     sheets_service=sheets_service,
     ingestion_service=ingestion_service,
+    user_repository=user_repository,
 )
 
 # Cache to track processed updates and prevent Telegram retry duplicates
@@ -100,3 +117,8 @@ async def telegram_webhook(request: Request, background_tasks: BackgroundTasks):
 def health_check():
     """Health check endpoint to verify server is active."""
     return {"status": "🤖 El bot está vivo y listo para recibir finanzas."}
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

@@ -4,6 +4,7 @@ from typing import List, Optional
 from core.models import Transaction
 from core.validators.pipeline import TransactionValidationPipeline, create_default_pipeline
 from services.sheets_service import SheetsService
+from repositories.transaction_repository import TransactionRepository
 
 
 @dataclass
@@ -35,18 +36,30 @@ class TransactionIngestionService:
 
     def __init__(
         self,
-        sheets_service: SheetsService,
+        transaction_repository: Optional[TransactionRepository] = None,
+        sheets_service: Optional[SheetsService] = None,
         pipeline: Optional[TransactionValidationPipeline] = None,
     ):
+        self.transaction_repository = transaction_repository
         self.sheets_service = sheets_service
         self.pipeline = pipeline or create_default_pipeline()
 
-    def ingest_transaction(self, transaction: Transaction) -> IngestionResult:
+    def ingest_transaction(
+        self,
+        transaction: Transaction,
+        user_id: Optional[int] = None,
+    ) -> IngestionResult:
         """
-        Ingests a single transaction through the validation pipeline and saves it.
+        Ingests a single transaction through the validation pipeline and saves it
+        to the database (per user) and/or Google Sheets.
         """
         try:
-            existing_fingerprints = self.sheets_service.get_existing_fingerprints()
+            existing_fingerprints = set()
+            if self.transaction_repository and user_id:
+                existing_fingerprints.update(self.transaction_repository.get_user_fingerprints(user_id))
+            if self.sheets_service:
+                existing_fingerprints.update(self.sheets_service.get_existing_fingerprints())
+
             context = {"existing_fingerprints": existing_fingerprints}
 
             validation_result = self.pipeline.validate(transaction, context)
@@ -58,16 +71,22 @@ class TransactionIngestionService:
                     error_message=validation_result.error_message or "Validación fallida.",
                 )
 
-            self.sheets_service.append_raw_row([
-                transaction.date.isoformat(),
-                transaction.transaction_type,
-                transaction.amount,
-                transaction.source_account or "",
-                transaction.destination_account or "",
-                transaction.category,
-                transaction.subcategory,
-                transaction.description,
-            ])
+            # Persist to relational database
+            if self.transaction_repository and user_id:
+                self.transaction_repository.save_transaction(user_id=user_id, transaction=transaction)
+
+            # Persist to Google Sheets if configured
+            if self.sheets_service:
+                self.sheets_service.append_raw_row([
+                    transaction.date.isoformat(),
+                    transaction.transaction_type,
+                    transaction.amount,
+                    transaction.source_account or "",
+                    transaction.destination_account or "",
+                    transaction.category,
+                    transaction.subcategory,
+                    transaction.description,
+                ])
 
             return IngestionResult(success=True, transaction=transaction)
         except Exception as exc:
@@ -78,17 +97,26 @@ class TransactionIngestionService:
                 error_message=f"Error interno al guardar: {exc}",
             )
 
-    def ingest_batch(self, transactions: List[Transaction]) -> BatchIngestionResult:
+    def ingest_batch(
+        self,
+        transactions: List[Transaction],
+        user_id: Optional[int] = None,
+    ) -> BatchIngestionResult:
         """
         Ingests a list of transactions through the validation pipeline in batch,
-        filtering out duplicates and invalid items before saving.
+        filtering out duplicates and invalid items before saving to database/sheets.
         """
         result = BatchIngestionResult()
         if not transactions:
             return result
 
         try:
-            existing_fingerprints = self.sheets_service.get_existing_fingerprints()
+            existing_fingerprints = set()
+            if self.transaction_repository and user_id:
+                existing_fingerprints.update(self.transaction_repository.get_user_fingerprints(user_id))
+            if self.sheets_service:
+                existing_fingerprints.update(self.sheets_service.get_existing_fingerprints())
+
             context = {"existing_fingerprints": existing_fingerprints}
 
             valid_transactions: List[Transaction] = []
@@ -116,7 +144,12 @@ class TransactionIngestionService:
                         tx.description,
                     ])
 
-            if rows_to_save:
+            # Persist batch to database
+            if self.transaction_repository and user_id and valid_transactions:
+                self.transaction_repository.save_batch(user_id=user_id, transactions=valid_transactions)
+
+            # Persist batch to Google Sheets if configured
+            if self.sheets_service and rows_to_save:
                 self.sheets_service.append_raw_rows(rows_to_save)
 
             result.added_count = len(valid_transactions)

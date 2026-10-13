@@ -104,3 +104,58 @@ def test_ingest_batch_deduplication():
     assert len(batch_result.accepted_transactions) == 1
     assert batch_result.accepted_transactions[0].description == "Viaje al trabajo"
     assert mock_sheets.append_raw_rows.called
+
+
+def test_ingest_single_and_batch_with_database_repository():
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    from core.database.session import Base
+    from repositories.user_repository import UserRepository
+    from repositories.transaction_repository import TransactionRepository
+
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(bind=engine)
+    Session = sessionmaker(bind=engine)
+    db = Session()
+
+    user_repo = UserRepository(db)
+    user = user_repo.create_user(telegram_id=77777, first_name="IngestionTest")
+
+    tx_repo = TransactionRepository(db)
+    service = TransactionIngestionService(transaction_repository=tx_repo)
+
+    tx1 = Transaction(
+        date=date(2026, 10, 13),
+        transaction_type="Gasto",
+        amount=250.0,
+        source_account="Tarjeta Débito BBVA",
+        category="Alimentación",
+        subcategory="Super",
+        description="Despensa",
+    )
+
+    # Ingest single transaction into database
+    res1 = service.ingest_transaction(tx1, user_id=user.id)
+    assert res1.success
+    assert not res1.is_duplicate
+
+    # Ingest duplicate transaction -> should be detected as duplicate
+    res2 = service.ingest_transaction(tx1, user_id=user.id)
+    assert not res2.success
+    assert res2.is_duplicate
+
+    # Ingest batch
+    tx2 = Transaction(
+        date=date(2026, 10, 13),
+        transaction_type="Gasto",
+        amount=50.0,
+        source_account="Efectivo",
+        category="Transporte",
+        subcategory="Metro",
+        description="Boleto metro",
+    )
+    batch_res = service.ingest_batch([tx1, tx2], user_id=user.id)
+    assert batch_res.added_count == 1
+    assert batch_res.duplicate_count == 1
+
+    db.close()

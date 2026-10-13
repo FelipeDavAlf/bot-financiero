@@ -8,6 +8,19 @@ from core.models import Transaction
 from core.validators.duplicate_validator import normalize_amount, normalize_date
 from core.config import settings
 
+DEFAULT_SUPPORTED_ACCOUNTS = [
+    "Efectivo",
+    "Tarjeta Débito BBVA",
+    "Tarjeta Débito Stori",
+    "Tarjeta Crédito BBVA",
+    "Tarjeta Crédito Stori",
+    "Tarjeta Crédito Rappi",
+    "Tarjeta Crédito Nu",
+    "Tarjeta Débito Nu",
+    "Cuenta Mercado Pago",
+]
+
+
 class NLPService:
     """
     Service responsible for Natural Language Processing using Google's Gemini API.
@@ -46,8 +59,9 @@ class NLPService:
                 json_str = text.strip()
                 
         return json.loads(json_str)
+
     @staticmethod
-    def _sanitize_transaction_data(data: dict) -> dict:
+    def _sanitize_transaction_data(data: dict, allowed_accounts: Optional[list] = None) -> dict:
         """
         Sanitizes and normalizes raw dictionary data returned by LLM
         prior to instantiating the Pydantic Transaction model.
@@ -84,6 +98,7 @@ class NLPService:
             clean["transaction_type"] = "Gasto"
 
         # 4. Normalize account names
+        accounts_pool = allowed_accounts or DEFAULT_SUPPORTED_ACCOUNTS
         for acct_field in ["source_account", "destination_account"]:
             raw_acct = clean.get(acct_field)
             if not raw_acct or str(raw_acct).strip().lower() in ("null", "none", ""):
@@ -91,20 +106,30 @@ class NLPService:
             else:
                 acct_str = str(raw_acct).strip()
                 acct_lower = acct_str.lower()
-                if "rappi" in acct_lower:
-                    clean[acct_field] = "Tarjeta Crédito Rappi"
-                elif "mercado pago" in acct_lower or "mercadopago" in acct_lower:
-                    clean[acct_field] = "Cuenta Mercado Pago"
-                elif "stori" in acct_lower:
-                    clean[acct_field] = "Tarjeta Crédito Stori" if "crédito" in acct_lower or "credito" in acct_lower else "Tarjeta Débito Stori"
-                elif "nu" in acct_lower:
-                    clean[acct_field] = "Tarjeta Débito Nu" if "débito" in acct_lower or "debito" in acct_lower else "Tarjeta Crédito Nu"
-                elif "bbva" in acct_lower:
-                    clean[acct_field] = "Tarjeta Crédito BBVA" if "crédito" in acct_lower or "credito" in acct_lower else "Tarjeta Débito BBVA"
-                elif "efectivo" in acct_lower:
-                    clean[acct_field] = "Efectivo"
-                else:
-                    clean[acct_field] = acct_str
+                matched = None
+
+                # 1. Exact match in accounts pool
+                for candidate in accounts_pool:
+                    if candidate.lower() == acct_lower:
+                        matched = candidate
+                        break
+
+                # 2. Match based on explicit bank / brand keywords
+                if not matched:
+                    if "rappi" in acct_lower:
+                        matched = "Tarjeta Crédito Rappi"
+                    elif "mercado pago" in acct_lower or "mercadopago" in acct_lower:
+                        matched = "Cuenta Mercado Pago"
+                    elif "stori" in acct_lower:
+                        matched = "Tarjeta Crédito Stori" if "crédito" in acct_lower or "credito" in acct_lower else "Tarjeta Débito Stori"
+                    elif "nu" in acct_lower:
+                        matched = "Tarjeta Débito Nu" if "débito" in acct_lower or "debito" in acct_lower else "Tarjeta Crédito Nu"
+                    elif "bbva" in acct_lower:
+                        matched = "Tarjeta Crédito BBVA" if "crédito" in acct_lower or "credito" in acct_lower else "Tarjeta Débito BBVA"
+                    elif "efectivo" in acct_lower:
+                        matched = "Efectivo"
+
+                clean[acct_field] = matched or acct_str
 
         # 5. Normalize category, subcategory and description
         raw_cat = clean.get("category")
@@ -127,23 +152,21 @@ class NLPService:
 
         return clean
 
-    def message_processor(self, user_message: str) -> Optional[Transaction]:
+    def message_processor(
+        self,
+        user_message: str,
+        user_accounts: Optional[list] = None,
+    ) -> Optional[Transaction]:
         """
         Analyzes a natural language message and extracts transaction details.
 
         This method sends a strictly formatted prompt to the Gemini 2.5 Flash model,
         forcing a JSON response. It then parses the JSON, sanitizes the fields,
         and validates it against the Transaction Pydantic model.
-
-        Args:
-            user_message (str): The raw text message provided by the user 
-                (e.g., "I spent 120 on chilaquiles with my debit card").
-
-        Returns:
-            Optional[Transaction]: A validated Transaction model or None if the message
-                does not describe a financial movement.
         """
         today = date.today().isoformat()
+        accounts_to_use = user_accounts if user_accounts else DEFAULT_SUPPORTED_ACCOUNTS
+        accounts_json = json.dumps(accounts_to_use, ensure_ascii=False)
         
         prompt = f"""
         Hoy es {today}. Eres un asistente financiero muy preciso.
@@ -169,7 +192,7 @@ class NLPService:
         - date: YYYY-MM-DD (usa la fecha de hoy si no se especifica).
         - transaction_type: "Ingreso", "Gasto" o "Traspaso".
         - amount: número positivo mayor a 0.
-        - source_account: string o null. DEBE ser EXACTAMENTE una de esta lista: ["Efectivo", "Tarjeta Débito BBVA", "Tarjeta Débito Stori", "Tarjeta Crédito BBVA", "Tarjeta Crédito Stori", "Tarjeta Crédito Rappi", "Tarjeta Crédito Nu", "Tarjeta Débito Nu", "Cuenta Mercado Pago"]. Si no lo menciona, infiérelo lógicamente o déjalo en null.
+        - source_account: string o null. DEBE ser EXACTAMENTE una de esta lista: {accounts_json}. Si no lo menciona, infiérelo lógicamente o déjalo en null.
         - destination_account: string o null. DEBE ser EXACTAMENTE una de la misma lista anterior. Usualmente aplica para "Traspaso" o "Ingreso". Si no lo menciona, infiérelo lógicamente o déjalo en null.
         - category: string. DEBE ser EXACTAMENTE una de esta lista: [Salario, Rendimientos, Alimentación, Vivienda y Servicios, Transporte, Suscripciones, Ocio y Entretenimiento, Salud y Cuidado, Mascotas, Ahorro e Inversión, Otros, Traspaso].
         - subcategory: Asigna una etiqueta corta (1 a 3 palabras) para el detalle.
@@ -192,18 +215,24 @@ class NLPService:
         if data.get("is_transaction") is False or not data.get("amount"):
             return None
 
-        clean_data = self._sanitize_transaction_data(data)
+        clean_data = self._sanitize_transaction_data(data, allowed_accounts=accounts_to_use)
         if clean_data.get("amount", 0) <= 0:
             return None
 
         return Transaction(**clean_data)
 
-    def process_audio(self, audio_path: str) -> Optional[Transaction]:
+    def process_audio(
+        self,
+        audio_path: str,
+        user_accounts: Optional[list] = None,
+    ) -> Optional[Transaction]:
         """
         Processes a voice note using Gemini's native audio capabilities.
         Returns None if the voice note does not describe a financial transaction.
         """
         today = date.today().isoformat()
+        accounts_to_use = user_accounts if user_accounts else DEFAULT_SUPPORTED_ACCOUNTS
+        accounts_json = json.dumps(accounts_to_use, ensure_ascii=False)
         
         prompt = f"""
         Hoy es {today}. Eres un asistente financiero muy preciso.
@@ -229,7 +258,7 @@ class NLPService:
         - date: YYYY-MM-DD (usa la fecha de hoy si no se especifica).
         - transaction_type: "Ingreso", "Gasto" o "Traspaso".
         - amount: número positivo mayor a 0.
-        - source_account: string o null. DEBE ser EXACTAMENTE una de esta lista: ["Efectivo", "Tarjeta Débito BBVA", "Tarjeta Débito Stori", "Tarjeta Crédito BBVA", "Tarjeta Crédito Stori", "Tarjeta Crédito Rappi", "Tarjeta Crédito Nu", "Tarjeta Débito Nu", "Cuenta Mercado Pago"].
+        - source_account: string o null. DEBE ser EXACTAMENTE una de esta lista: {accounts_json}.
         - destination_account: string o null. DEBE ser EXACTAMENTE una de la misma lista anterior.
         - category: string. DEBE ser EXACTAMENTE una de esta lista: [Salario, Rendimientos, Alimentación, Vivienda y Servicios, Transporte, Suscripciones, Ocio y Entretenimiento, Salud y Cuidado, Mascotas, Ahorro e Inversión, Otros, Traspaso].
         - subcategory: Asigna una etiqueta corta (1 a 3 palabras) para el detalle.
@@ -264,7 +293,7 @@ class NLPService:
         if data.get("is_transaction") is False or not data.get("amount"):
             return None
 
-        clean_data = self._sanitize_transaction_data(data)
+        clean_data = self._sanitize_transaction_data(data, allowed_accounts=accounts_to_use)
         if clean_data.get("amount", 0) <= 0:
             return None
 
