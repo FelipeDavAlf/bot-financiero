@@ -3,7 +3,7 @@ from datetime import date
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from core.database.session import Base
-from core.database.models import User, Account, TransactionRecord
+from core.database.models import User
 from repositories.user_repository import UserRepository
 from repositories.transaction_repository import TransactionRepository
 from core.models import Transaction
