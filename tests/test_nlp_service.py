@@ -59,4 +59,54 @@ def test_greeting_intent_detection():
     assert is_greeting_or_help_intent("ayuda")
     assert is_greeting_or_help_intent("info")
     assert not is_greeting_or_help_intent("Gasté 100 pesos en tacos")
-    assert not is_greeting_or_help_intent("Pagué la luz")
+    assert not is_greeting_or_help_intent("Pagué la luz")
+
+
+def test_sanitize_transaction_data_relative_dates():
+    from datetime import date, timedelta
+    yesterday = (date.today() - timedelta(days=1)).isoformat()
+    raw = {
+        "date": "ayer",
+        "transaction_type": "gasto",
+        "amount": "222 pesos",
+        "source_account": "tarjeta de rappi",
+        "category": "Vivienda y Servicios",
+        "description": "Estantes baño"
+    }
+    clean = NLPService._sanitize_transaction_data(raw)
+    assert clean["date"] == yesterday
+    assert clean["transaction_type"] == "Gasto"
+    assert clean["amount"] == 222.0
+    assert clean["source_account"] == "Tarjeta Crédito Rappi"
+
+
+@patch('services.nlp_service.genai.Client')
+def test_process_message_with_relative_date_and_raw_amount(mock_genai_client_class):
+    from datetime import date, timedelta
+    yesterday = (date.today() - timedelta(days=1)).isoformat()
+
+    mock_client_instance = MagicMock()
+    mock_response = MagicMock()
+    mock_response.text = """
+    {
+        "date": "ayer",
+        "transaction_type": "gasto",
+        "amount": "$222.00 pesos",
+        "source_account": "tarjeta rappi",
+        "destination_account": null,
+        "category": "Vivienda y Servicios",
+        "subcategory": "Estantes baño",
+        "description": "Estantes para baño"
+    }
+    """
+    mock_client_instance.models.generate_content.return_value = mock_response
+    mock_genai_client_class.return_value = mock_client_instance
+
+    nlp = NLPService()
+    transaction = nlp.message_processor("Gaste 222 pesos en estantes para baño con tarjeta de rappi ayer")
+
+    assert transaction is not None
+    assert transaction.date.isoformat() == yesterday
+    assert transaction.transaction_type == "Gasto"
+    assert transaction.amount == 222.0
+    assert transaction.source_account == "Tarjeta Crédito Rappi"

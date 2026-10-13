@@ -4,7 +4,7 @@ from google.genai import types
 import json
 import logging
 from datetime import date, timedelta
-from core.models import Transaction, TransactionList
+from core.models import Transaction
 from core.validators.duplicate_validator import normalize_amount, normalize_date
 from core.config import settings
 
@@ -46,13 +46,94 @@ class NLPService:
                 json_str = text.strip()
                 
         return json.loads(json_str)
-    def message_processor(self, user_message: str) -> Transaction:
+    @staticmethod
+    def _sanitize_transaction_data(data: dict) -> dict:
+        """
+        Sanitizes and normalizes raw dictionary data returned by LLM
+        prior to instantiating the Pydantic Transaction model.
+        Resolves relative dates (ayer, antier, hoy), normalizes transaction types,
+        cleans numeric amounts, and handles account and category mapping.
+        """
+        clean = dict(data)
+        clean.pop("is_transaction", None)
+
+        # 1. Normalize amount
+        clean["amount"] = normalize_amount(clean.get("amount"))
+
+        # 2. Normalize date (handling relative expressions like ayer, antier, hoy)
+        today = date.today()
+        raw_date = str(clean.get("date", "")).strip().lower()
+        if not raw_date or raw_date in ("none", "null"):
+            clean["date"] = today.isoformat()
+        elif "ayer" in raw_date and "ante" not in raw_date and "antier" not in raw_date:
+            clean["date"] = (today - timedelta(days=1)).isoformat()
+        elif "antier" in raw_date or "anteayer" in raw_date:
+            clean["date"] = (today - timedelta(days=2)).isoformat()
+        elif "hoy" in raw_date:
+            clean["date"] = today.isoformat()
+        else:
+            clean["date"] = normalize_date(raw_date)
+
+        # 3. Normalize transaction type (strict Literal matching)
+        raw_type = str(clean.get("transaction_type", "")).strip().lower()
+        if any(w in raw_type for w in ["ingreso", "deposito", "abono", "sueldo", "nomina"]):
+            clean["transaction_type"] = "Ingreso"
+        elif any(w in raw_type for w in ["traspaso", "transferencia", "apartado"]):
+            clean["transaction_type"] = "Traspaso"
+        else:
+            clean["transaction_type"] = "Gasto"
+
+        # 4. Normalize account names
+        for acct_field in ["source_account", "destination_account"]:
+            raw_acct = clean.get(acct_field)
+            if not raw_acct or str(raw_acct).strip().lower() in ("null", "none", ""):
+                clean[acct_field] = None
+            else:
+                acct_str = str(raw_acct).strip()
+                acct_lower = acct_str.lower()
+                if "rappi" in acct_lower:
+                    clean[acct_field] = "Tarjeta Crédito Rappi"
+                elif "mercado pago" in acct_lower or "mercadopago" in acct_lower:
+                    clean[acct_field] = "Cuenta Mercado Pago"
+                elif "stori" in acct_lower:
+                    clean[acct_field] = "Tarjeta Crédito Stori" if "crédito" in acct_lower or "credito" in acct_lower else "Tarjeta Débito Stori"
+                elif "nu" in acct_lower:
+                    clean[acct_field] = "Tarjeta Débito Nu" if "débito" in acct_lower or "debito" in acct_lower else "Tarjeta Crédito Nu"
+                elif "bbva" in acct_lower:
+                    clean[acct_field] = "Tarjeta Crédito BBVA" if "crédito" in acct_lower or "credito" in acct_lower else "Tarjeta Débito BBVA"
+                elif "efectivo" in acct_lower:
+                    clean[acct_field] = "Efectivo"
+                else:
+                    clean[acct_field] = acct_str
+
+        # 5. Normalize category, subcategory and description
+        raw_cat = clean.get("category")
+        if not raw_cat or str(raw_cat).strip().lower() in ("null", "none", ""):
+            clean["category"] = "Otros"
+        else:
+            clean["category"] = str(raw_cat).strip()
+
+        raw_subcat = clean.get("subcategory")
+        if not raw_subcat or str(raw_subcat).strip().lower() in ("null", "none", ""):
+            clean["subcategory"] = clean.get("category", "General")
+        else:
+            clean["subcategory"] = str(raw_subcat).strip()
+
+        raw_desc = clean.get("description")
+        if not raw_desc or str(raw_desc).strip().lower() in ("null", "none", ""):
+            clean["description"] = clean.get("subcategory", "Movimiento")
+        else:
+            clean["description"] = str(raw_desc).strip()
+
+        return clean
+
+    def message_processor(self, user_message: str) -> Optional[Transaction]:
         """
         Analyzes a natural language message and extracts transaction details.
 
         This method sends a strictly formatted prompt to the Gemini 2.5 Flash model,
-        forcing a JSON response. It then parses the JSON and validates it against 
-        the Transaction Pydantic model.
+        forcing a JSON response. It then parses the JSON, sanitizes the fields,
+        and validates it against the Transaction Pydantic model.
 
         Args:
             user_message (str): The raw text message provided by the user 
@@ -111,8 +192,11 @@ class NLPService:
         if data.get("is_transaction") is False or not data.get("amount"):
             return None
 
-        data.pop("is_transaction", None)
-        return Transaction(**data)
+        clean_data = self._sanitize_transaction_data(data)
+        if clean_data.get("amount", 0) <= 0:
+            return None
+
+        return Transaction(**clean_data)
 
     def process_audio(self, audio_path: str) -> Optional[Transaction]:
         """
@@ -180,8 +264,11 @@ class NLPService:
         if data.get("is_transaction") is False or not data.get("amount"):
             return None
 
-        data.pop("is_transaction", None)
-        return Transaction(**data)
+        clean_data = self._sanitize_transaction_data(data)
+        if clean_data.get("amount", 0) <= 0:
+            return None
+
+        return Transaction(**clean_data)
 
     def extract_document_text(self, doc_path: str) -> str:
         """
@@ -258,9 +345,16 @@ class NLPService:
         )
 
         data = self._extract_json(response.text)
-        transaction_list = TransactionList(**data)
-        logging.info(f"Parsed {len(transaction_list.transactions)} transactions with Gemini.")
-        return transaction_list.transactions
+        raw_items = data.get("transactions", []) if isinstance(data, dict) else []
+        clean_transactions = []
+        for item in raw_items:
+            if isinstance(item, dict):
+                clean_item = self._sanitize_transaction_data(item)
+                if clean_item.get("amount", 0) > 0:
+                    clean_transactions.append(Transaction(**clean_item))
+
+        logging.info(f"Parsed {len(clean_transactions)} transactions with Gemini.")
+        return clean_transactions
 
     def process_document(self, doc_path: str) -> list[Transaction]:
         """

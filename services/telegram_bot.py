@@ -146,8 +146,11 @@ class TelegramBot:
                 
             await self._update_status(status_message, response)
         except Exception as e:
-            logging.error(f"Error processing message: {e}")
-            await self._update_status(status_message, "❌ Lo siento, no pude procesar eso. Intenta ser más específico.")
+            logging.error(f"Error processing message: {e}", exc_info=True)
+            await self._update_status(
+                status_message,
+                "❌ Ocurrió un error al procesar tu solicitud. Por favor intenta de nuevo en unos momentos."
+            )
 
     async def handle_voice(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Processes voice notes with progressive status updates."""
