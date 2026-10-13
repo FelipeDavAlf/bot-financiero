@@ -117,3 +117,8 @@ async def telegram_webhook(request: Request, background_tasks: BackgroundTasks):
 def health_check():
     """Health check endpoint to verify server is active."""
     return {"status": "🤖 El bot está vivo y listo para recibir finanzas."}
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

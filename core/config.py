@@ -13,10 +13,12 @@ class Settings:
 
     @property
     def normalized_database_url(self) -> str:
-        """Returns the normalized database URL, converting legacy postgres:// to postgresql://."""
+        """Returns the normalized database URL, ensuring psycopg2 driver is explicitly used."""
         url = self.DATABASE_URL
         if url.startswith("postgres://"):
-            url = url.replace("postgres://", "postgresql://", 1)
+            url = url.replace("postgres://", "postgresql+psycopg2://", 1)
+        elif url.startswith("postgresql://") and not url.startswith("postgresql+"):
+            url = url.replace("postgresql://", "postgresql+psycopg2://", 1)
         return url
 
 # Instantiating settings for global access
