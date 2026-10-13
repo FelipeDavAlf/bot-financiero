@@ -10,6 +10,7 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
 from services.nlp_service import NLPService
 from services.sheets_service import SheetsService
 from services.ingestion_service import TransactionIngestionService
+from repositories.user_repository import UserRepository
 from services.bot_messages import (
     WELCOME_MESSAGE,
     HELP_MESSAGE,
@@ -53,12 +54,16 @@ class TelegramBot:
     def __init__(
         self,
         nlp_service: NLPService,
-        sheets_service: SheetsService,
+        sheets_service: Optional[SheetsService] = None,
         ingestion_service: Optional[TransactionIngestionService] = None,
+        user_repository: Optional[UserRepository] = None,
     ):
         self.nlp_service = nlp_service
         self.sheets_service = sheets_service
-        self.ingestion_service = ingestion_service or TransactionIngestionService(sheets_service=sheets_service)
+        self.user_repository = user_repository
+        self.ingestion_service = ingestion_service or TransactionIngestionService(
+            sheets_service=sheets_service
+        )
         self.app = (
             Application.builder()
             .token(settings.TELEGRAM_TOKEN)
@@ -81,6 +86,16 @@ class TelegramBot:
         # Listen for documents (PDF, CSV, Excel)
         self.app.add_handler(MessageHandler(filters.Document.ALL, self.handle_document))
 
+    def _get_or_create_user(self, update: Update):
+        """Retrieves or registers the Telegram user in the database."""
+        if not self.user_repository or not update.effective_user:
+            return None
+        return self.user_repository.get_or_create_user(
+            telegram_id=update.effective_user.id,
+            first_name=update.effective_user.first_name,
+            username=update.effective_user.username,
+        )
+
     async def _update_status(self, message, text: str):
         """Safely updates a Telegram status message."""
         try:
@@ -89,7 +104,8 @@ class TelegramBot:
             logging.debug(f"Could not edit status message: {exc}")
 
     async def handle_start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Sends the detailed welcome message."""
+        """Sends the detailed welcome message and registers the user."""
+        self._get_or_create_user(update)
         await update.message.reply_text(WELCOME_MESSAGE, parse_mode="Markdown")
 
     async def handle_help(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -98,6 +114,17 @@ class TelegramBot:
 
     async def handle_cuentas(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Sends the list of supported accounts and payment methods."""
+        user = self._get_or_create_user(update)
+        if self.user_repository and user:
+            accounts = self.user_repository.get_user_accounts(user.id)
+            if accounts:
+                accounts_text = "💳 **Tus Cuentas y Métodos de Pago Disponibles:**\n\n"
+                for acc in accounts:
+                    accounts_text += f"• 🔹 **{acc.name}** ({acc.account_type})\n"
+                accounts_text += "\n💡 *Puedes registrar gastos indicando cualquiera de estas cuentas.*"
+                await update.message.reply_text(accounts_text, parse_mode="Markdown")
+                return
+
         await update.message.reply_text(ACCOUNTS_MESSAGE, parse_mode="Markdown")
 
     async def handle_categorias(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -126,16 +153,32 @@ class TelegramBot:
             await update.message.reply_text(WELCOME_MESSAGE, parse_mode="Markdown")
             return
 
+        user = self._get_or_create_user(update)
+        user_id = user.id if user else None
+        user_accounts = (
+            self.user_repository.get_user_account_names(user.id)
+            if (self.user_repository and user)
+            else None
+        )
+
         await context.bot.send_chat_action(chat_id=chat_id, action=ChatAction.TYPING)
         status_message = await update.message.reply_text("⏳ Procesando transacción...")
         
         try:
-            transaction = await asyncio.to_thread(self.nlp_service.message_processor, user_message)
+            transaction = await asyncio.to_thread(
+                self.nlp_service.message_processor,
+                user_message,
+                user_accounts,
+            )
             if not transaction:
                 await self._update_status(status_message, NON_TRANSACTION_FALLBACK_MESSAGE)
                 return
 
-            ingestion_result = await asyncio.to_thread(self.ingestion_service.ingest_transaction, transaction)
+            ingestion_result = await asyncio.to_thread(
+                self.ingestion_service.ingest_transaction,
+                transaction,
+                user_id,
+            )
             
             if ingestion_result.success:
                 response = f"✅ **Transacción guardada exitosamente**\n\n{self._format_transaction_response(transaction)}"
@@ -159,6 +202,14 @@ class TelegramBot:
         status_message = await update.message.reply_text("🎙️ **Escuchando nota de voz:** Recibiendo audio...", parse_mode="Markdown")
         file_path = None
         
+        user = self._get_or_create_user(update)
+        user_id = user.id if user else None
+        user_accounts = (
+            self.user_repository.get_user_account_names(user.id)
+            if (self.user_repository and user)
+            else None
+        )
+
         try:
             voice = update.message.voice
             file = await context.bot.get_file(voice.file_id)
@@ -170,7 +221,7 @@ class TelegramBot:
             await self._update_status(status_message, "🤖 **Analizando audio:** Interpretando transacción con Gemini...")
             await context.bot.send_chat_action(chat_id=chat_id, action=ChatAction.TYPING)
             
-            transaction = await asyncio.to_thread(self.nlp_service.process_audio, file_path)
+            transaction = await asyncio.to_thread(self.nlp_service.process_audio, file_path, user_accounts)
             if not transaction:
                 await self._update_status(
                     status_message,
@@ -178,8 +229,8 @@ class TelegramBot:
                 )
                 return
             
-            await self._update_status(status_message, "📊 **Guardando transacción:** Sincronizando con Google Sheets...")
-            ingestion_result = await asyncio.to_thread(self.ingestion_service.ingest_transaction, transaction)
+            await self._update_status(status_message, "📊 **Guardando transacción:** Sincronizando registros...")
+            ingestion_result = await asyncio.to_thread(self.ingestion_service.ingest_transaction, transaction, user_id)
             
             if ingestion_result.success:
                 response = f"✅ **Audio procesado y guardado**\n\n{self._format_transaction_response(transaction)}"
@@ -204,6 +255,9 @@ class TelegramBot:
         chat_id = update.effective_chat.id
         await context.bot.send_chat_action(chat_id=chat_id, action=ChatAction.TYPING)
         
+        user = self._get_or_create_user(update)
+        user_id = user.id if user else None
+
         status_message = await update.message.reply_text(
             DOCUMENT_STATE_MESSAGES[DocumentProcessingState.DOWNLOADING],
             parse_mode="Markdown"
@@ -238,12 +292,12 @@ class TelegramBot:
                 await self._update_status(status_message, "⚠️ No encontré ninguna transacción válida en este documento.")
                 return
                 
-            # State: Saving to Google Sheets
+            # State: Saving transactions
             await self._update_status(
                 status_message,
                 DOCUMENT_STATE_MESSAGES[DocumentProcessingState.SAVING]
             )
-            batch_result = await asyncio.to_thread(self.ingestion_service.ingest_batch, transactions)
+            batch_result = await asyncio.to_thread(self.ingestion_service.ingest_batch, transactions, user_id)
             
             response = "✅ **Documento procesado con éxito**\n\n"
             response += "📊 **Resumen:**\n"
