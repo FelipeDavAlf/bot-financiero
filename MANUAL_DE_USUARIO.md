@@ -39,6 +39,7 @@ El bot cuenta con comandos rápidos para consultar su funcionamiento y reglas:
 | Comando | Descripción |
 | :--- | :--- |
 | `/start` | Registra al usuario y muestra el mensaje de bienvenida con el resumen operativo. |
+| `/exportar` | Genera y envía tu reporte financiero en formato Excel (.xlsx) con balances y detalle. |
 | `/help` | Despliega una guía rápida con ejemplos recomendados de ingresos, gastos y traspasos. |
 | `/cuentas` | Muestra la lista de tus cuentas y métodos de pago habilitados. |
 | `/categorias` | Despliega el catálogo oficial de categorías para clasificar movimientos. |
