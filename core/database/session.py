@@ -16,7 +16,12 @@ engine = create_engine(
     pool_pre_ping=True,  # Ensures healthy PostgreSQL connections
 )
 
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+SessionLocal = sessionmaker(
+    autocommit=False,
+    autoflush=False,
+    expire_on_commit=False,
+    bind=engine,
+)
 Base = declarative_base()
 
 
