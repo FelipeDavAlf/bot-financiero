@@ -7,7 +7,7 @@ from fastapi import BackgroundTasks, FastAPI, Request, Response
 from telegram import BotCommand, Update
 
 from core.config import settings
-from core.database.session import SessionLocal, init_db
+from core.database.session import init_db
 from repositories.user_repository import UserRepository
 from repositories.transaction_repository import TransactionRepository
 from services.nlp_service import NLPService
@@ -21,9 +21,8 @@ logging.basicConfig(
 
 # 1. Global database and services instantiation
 init_db()
-db_session = SessionLocal()
-user_repository = UserRepository(db=db_session)
-transaction_repository = TransactionRepository(db=db_session)
+user_repository = UserRepository()
+transaction_repository = TransactionRepository()
 
 nlp_service = NLPService()
 sheets_service = None
