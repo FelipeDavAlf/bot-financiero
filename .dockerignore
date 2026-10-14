@@ -5,3 +5,7 @@ __pycache__/
 .git
 .gitignore
 credentials.json
+.pytest_cache/
+.ruff_cache/
+.coverage
+tests/
