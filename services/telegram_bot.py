@@ -1,4 +1,5 @@
 import asyncio
+from datetime import datetime
 from enum import Enum
 import logging
 import os
@@ -10,7 +11,9 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
 from services.nlp_service import NLPService
 from services.sheets_service import SheetsService
 from services.ingestion_service import TransactionIngestionService
+from services.export_service import ExcelExportService
 from repositories.user_repository import UserRepository
+from repositories.transaction_repository import TransactionRepository
 from services.bot_messages import (
     WELCOME_MESSAGE,
     HELP_MESSAGE,
@@ -41,7 +44,7 @@ DOCUMENT_STATE_MESSAGES = {
     DocumentProcessingState.DOWNLOADING: "📥 **Descargando documento:** Recibiendo archivo...",
     DocumentProcessingState.EXTRACTING: "🔍 **Extrayendo datos:** Leyendo tablas y formato del archivo...",
     DocumentProcessingState.ANALYZING: "🤖 **Analizando con IA:** Detectando y clasificando transacciones con Gemini...",
-    DocumentProcessingState.SAVING: "📊 **Guardando registros:** Sincronizando con Google Sheets...",
+    DocumentProcessingState.SAVING: "📊 **Guardando registros:** Guardando en tu base de datos...",
 }
 
 
@@ -57,10 +60,14 @@ class TelegramBot:
         sheets_service: Optional[SheetsService] = None,
         ingestion_service: Optional[TransactionIngestionService] = None,
         user_repository: Optional[UserRepository] = None,
+        transaction_repository: Optional[TransactionRepository] = None,
+        export_service: Optional[ExcelExportService] = None,
     ):
         self.nlp_service = nlp_service
         self.sheets_service = sheets_service
         self.user_repository = user_repository
+        self.transaction_repository = transaction_repository
+        self.export_service = export_service or ExcelExportService()
         self.ingestion_service = ingestion_service or TransactionIngestionService(
             sheets_service=sheets_service
         )
@@ -73,11 +80,13 @@ class TelegramBot:
             .build()
         )
         
-        # Command handlers for welcome, help, accounts and categories
+        # Command handlers for welcome, help, accounts, categories and export
         self.app.add_handler(CommandHandler("start", self.handle_start))
         self.app.add_handler(CommandHandler("help", self.handle_help))
         self.app.add_handler(CommandHandler("cuentas", self.handle_cuentas))
         self.app.add_handler(CommandHandler("categorias", self.handle_categorias))
+        self.app.add_handler(CommandHandler("exportar", self.handle_exportar))
+        self.app.add_handler(CommandHandler("descargar", self.handle_exportar))
         
         # Listen for any text message that is NOT a command (like /start)
         self.app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
@@ -130,6 +139,66 @@ class TelegramBot:
     async def handle_categorias(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Sends the list of supported categories."""
         await update.message.reply_text(CATEGORIES_MESSAGE, parse_mode="Markdown")
+
+    async def handle_exportar(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Generates and sends an Excel workbook containing financial summary and history."""
+        user = self._get_or_create_user(update)
+        if not user or not self.transaction_repository:
+            await update.message.reply_text("❌ No fue posible acceder a tu historial financiero.")
+            return
+
+        transactions = await asyncio.to_thread(
+            self.transaction_repository.get_all_user_transactions,
+            user.id,
+        )
+        if not transactions:
+            await update.message.reply_text(
+                "ℹ️ **Aún no tienes movimientos registrados.**\n\n"
+                "Comienza registrando tus gastos o ingresos (por texto, audio o estado de cuenta) "
+                "y luego usa `/exportar` para descargar tu reporte en Excel.",
+                parse_mode="Markdown",
+            )
+            return
+
+        chat_id = update.effective_chat.id
+        await context.bot.send_chat_action(chat_id=chat_id, action=ChatAction.UPLOAD_DOCUMENT)
+        status_message = await update.message.reply_text("⏳ **Generando tu reporte en Excel...**", parse_mode="Markdown")
+
+        try:
+            excel_buffer = await asyncio.to_thread(
+                self.export_service.generate_user_finance_workbook,
+                user_name=user.first_name or user.username or "Usuario",
+                transactions=transactions,
+            )
+
+            today_str = datetime.now().strftime("%Y-%m-%d")
+            filename = f"Finanzas_{today_str}.xlsx"
+
+            caption = (
+                f"📊 **¡Aquí tienes tu Reporte Financiero!**\n\n"
+                f"👤 **Usuario:** {user.first_name or user.username or 'Usuario'}\n"
+                f"📝 **Transacciones incluidas:** {len(transactions)}\n"
+                f"📅 **Corte al:** {today_str}\n\n"
+                f"✨ *Contiene 2 pestañas:* Resumen Financiero (balances y categorías) y Detalle de Movimientos."
+            )
+
+            await update.message.reply_document(
+                document=excel_buffer,
+                filename=filename,
+                caption=caption,
+                parse_mode="Markdown",
+            )
+            try:
+                await status_message.delete()
+            except Exception:
+                pass
+        except Exception as exc:
+            logging.error(f"Error generating or sending Excel report: {exc}", exc_info=True)
+            await self._update_status(
+                status_message,
+                "❌ Ocurrió un error al generar tu archivo Excel. Por favor intenta de nuevo en unos momentos."
+            )
+
 
     def _format_transaction_response(self, transaction) -> str:
         return (
