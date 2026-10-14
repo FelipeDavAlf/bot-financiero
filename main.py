@@ -26,11 +26,16 @@ user_repository = UserRepository(db=db_session)
 transaction_repository = TransactionRepository(db=db_session)
 
 nlp_service = NLPService()
-try:
-    sheets_service = SheetsService(spreadsheet_name="Finanzas personales")
-except Exception as exc:
-    logging.warning(f"Could not initialize SheetsService, continuing in DB-only mode: {exc}")
-    sheets_service = None
+sheets_service = None
+if settings.ENABLE_GOOGLE_SHEETS_SYNC:
+    try:
+        sheets_service = SheetsService(spreadsheet_name="Finanzas personales")
+        logging.info("Google Sheets synchronization is ENABLED.")
+    except Exception as exc:
+        logging.warning(f"Could not initialize SheetsService, continuing in DB-only mode: {exc}")
+        sheets_service = None
+else:
+    logging.info("Google Sheets real-time sync is DISABLED. Using database as single source of truth.")
 
 ingestion_service = TransactionIngestionService(
     transaction_repository=transaction_repository,
@@ -41,6 +46,7 @@ bot = TelegramBot(
     sheets_service=sheets_service,
     ingestion_service=ingestion_service,
     user_repository=user_repository,
+    transaction_repository=transaction_repository,
 )
 
 # Cache to track processed updates and prevent Telegram retry duplicates

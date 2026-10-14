@@ -10,6 +10,7 @@ class Settings:
     SHEETS_CREDENTIALS = os.getenv("GOOGLE_SHEETS_CREDENTIALS_FILE", "credentials.json").strip()
     WEBHOOK_URL = os.getenv("WEBHOOK_URL", "").strip()  # Only used in production (Render)
     DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./finanzas.db").strip()
+    ENABLE_GOOGLE_SHEETS_SYNC = os.getenv("ENABLE_GOOGLE_SHEETS_SYNC", "false").lower() in ("true", "1", "yes")
 
     @property
     def normalized_database_url(self) -> str:
