@@ -2,7 +2,7 @@ import re
 
 WELCOME_MESSAGE = """👋 **¡Hola! Bienvenido a tu Asistente Financiero Personal.**
 
-Soy tu bot para el control de gastos e ingresos, conectado directamente a tu hoja de **Google Sheets** para registrar y clasificar tus finanzas en tiempo real.
+Soy tu bot inteligente para el control de gastos e ingresos. Registro, clasifico y resguardo tus finanzas en una base de datos segura y te permito descargar tu reporte estructurado en **Excel** en cualquier momento.
 
 ---
 ### 🛠️ ¿Cómo puedes registrar movimientos?
@@ -35,9 +35,11 @@ Alimentación, Transporte, Vivienda y Servicios, Suscripciones, Ocio y Entreteni
 
 ---
 💡 *Comandos útiles:*
-• `/help` - Ver guía de ayuda y ejemplos
+• `/ayuda` - Ver guía de ayuda y ejemplos
 • `/cuentas` - Ver lista de cuentas disponibles
 • `/categorias` - Ver categorías de gastos e ingresos
+• `/exportar` - Descargar tu reporte financiero en Excel (.xlsx)
+• `/inicio` - Ver mensaje de bienvenida
 """
 
 HELP_MESSAGE = """📖 **Guía de Uso del Bot Financiero**
@@ -63,8 +65,11 @@ Para registrar cualquier transacción, sólo escríbela o dila en una nota de vo
 
 ---
 📌 Comandos rápidos:
+• `/exportar` - Descargar tu plantilla y reporte en Excel (.xlsx)
 • `/cuentas` - Ver métodos de pago admitidos
 • `/categorias` - Ver categorías permitidas
+• `/ayuda` - Ver esta guía de ayuda
+• `/inicio` - Ver mensaje de inicio
 """
 
 ACCOUNTS_MESSAGE = """💳 **Cuentas y Métodos de Pago Configurados**
@@ -112,7 +117,7 @@ Para registrar un gasto, ingreso o traspaso, asegúrate de mencionar al menos el
 • 🔁 `"Pasé $1,000 de BBVA a Mercado Pago"`
 
 🎙️ También puedes enviar una **nota de voz** o subir tu **estado de cuenta** (PDF, Excel o CSV).
-Usa `/help` si deseas consultar más información.
+Usa `/ayuda` si deseas consultar más información.
 """
 
 GREETING_KEYWORDS = {

@@ -110,3 +110,15 @@ class TransactionRepository:
             .limit(limit)
             .all()
         )
+
+    def get_all_user_transactions(self, user_id: int) -> List[TransactionRecord]:
+        """
+        Retrieves all transactions recorded for a user, ordered chronologically.
+        """
+        return (
+            self.db.query(TransactionRecord)
+            .filter(TransactionRecord.user_id == user_id)
+            .order_by(TransactionRecord.date.asc(), TransactionRecord.id.asc())
+            .all()
+        )
+

@@ -4,7 +4,7 @@ from http import HTTPStatus
 import logging
 
 from fastapi import BackgroundTasks, FastAPI, Request, Response
-from telegram import Update
+from telegram import BotCommand, Update
 
 from core.config import settings
 from core.database.session import SessionLocal, init_db
@@ -26,11 +26,16 @@ user_repository = UserRepository(db=db_session)
 transaction_repository = TransactionRepository(db=db_session)
 
 nlp_service = NLPService()
-try:
-    sheets_service = SheetsService(spreadsheet_name="Finanzas personales")
-except Exception as exc:
-    logging.warning(f"Could not initialize SheetsService, continuing in DB-only mode: {exc}")
-    sheets_service = None
+sheets_service = None
+if settings.ENABLE_GOOGLE_SHEETS_SYNC:
+    try:
+        sheets_service = SheetsService(spreadsheet_name="Finanzas personales")
+        logging.info("Google Sheets synchronization is ENABLED.")
+    except Exception as exc:
+        logging.warning(f"Could not initialize SheetsService, continuing in DB-only mode: {exc}")
+        sheets_service = None
+else:
+    logging.info("Google Sheets real-time sync is DISABLED. Using database as single source of truth.")
 
 ingestion_service = TransactionIngestionService(
     transaction_repository=transaction_repository,
@@ -41,6 +46,7 @@ bot = TelegramBot(
     sheets_service=sheets_service,
     ingestion_service=ingestion_service,
     user_repository=user_repository,
+    transaction_repository=transaction_repository,
 )
 
 # Cache to track processed updates and prevent Telegram retry duplicates
@@ -81,6 +87,19 @@ async def lifespan(app: FastAPI):
     if webhook_url:
         await bot.app.bot.set_webhook(url=f"{webhook_url}/webhook")
         logging.info(f"Webhook set to: {webhook_url}/webhook")
+
+    # Register Spanish bot command menu in Telegram UI
+    try:
+        await bot.app.bot.set_my_commands([
+            BotCommand("ayuda", "Guía de uso y ejemplos"),
+            BotCommand("cuentas", "Cuentas y métodos de pago"),
+            BotCommand("categorias", "Categorías de gastos e ingresos"),
+            BotCommand("exportar", "Descargar reporte en Excel (.xlsx)"),
+            BotCommand("inicio", "Mensaje de bienvenida"),
+        ])
+        logging.info("Registered Spanish bot command menu in Telegram.")
+    except Exception as exc:
+        logging.warning(f"Could not register bot commands menu: {exc}")
 
     yield
 

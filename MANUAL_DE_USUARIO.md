@@ -19,7 +19,8 @@ Este asistente inteligente opera a través de **Telegram**, impulsado por los mo
 6. [Manejo de Fechas Inteligentes](#-6-manejo-de-fechas-inteligentes)
 7. [Sistema Anti-Duplicados (Deduplicación)](#-7-sistema-anti-duplicados-deduplicación)
 8. [Estructura de Respuestas del Bot](#-8-estructura-de-respuestas-del-bot)
-9. [Preguntas Frecuentes y Consejos Prácticos](#-9-preguntas-frecuentes-y-consejos-prácticos)
+9. [Descarga y Visualización en Excel (/exportar)](#-9-descarga-y-visualización-en-excel-exportar)
+10. [Preguntas Frecuentes y Consejos Prácticos](#-10-preguntas-frecuentes-y-consejos-prácticos)
 
 ---
 
@@ -27,7 +28,7 @@ Este asistente inteligente opera a través de **Telegram**, impulsado por los mo
 
 1. Abre tu aplicación de **Telegram** (en tu celular, tablet o computadora).
 2. Busca tu bot por su nombre de usuario e inicia el chat.
-3. Presiona el botón **Iniciar** o envía el comando `/start`.
+3. Presiona el botón **Iniciar** o envía el comando `/inicio` (o `/start`).
 4. El bot registrará automáticamente tu perfil de usuario en la base de datos y configurará tus cuentas por defecto.
 
 ---
@@ -36,12 +37,13 @@ Este asistente inteligente opera a través de **Telegram**, impulsado por los mo
 
 El bot cuenta con comandos rápidos para consultar su funcionamiento y reglas:
 
-| Comando | Descripción |
-| :--- | :--- |
-| `/start` | Registra al usuario y muestra el mensaje de bienvenida con el resumen operativo. |
-| `/help` | Despliega una guía rápida con ejemplos recomendados de ingresos, gastos y traspasos. |
-| `/cuentas` | Muestra la lista de tus cuentas y métodos de pago habilitados. |
-| `/categorias` | Despliega el catálogo oficial de categorías para clasificar movimientos. |
+| Comando Principal | Alias Aceptados | Descripción |
+| :--- | :--- | :--- |
+| `/inicio` | `/start` | Registra al usuario y muestra el mensaje de bienvenida con el resumen operativo. |
+| `/ayuda` | `/help` | Despliega una guía rápida con ejemplos recomendados de ingresos, gastos y traspasos. |
+| `/cuentas` | `/accounts` | Muestra la lista de tus cuentas y métodos de pago habilitados. |
+| `/categorias` | `/categories` | Despliega el catálogo oficial de categorías para clasificar movimientos. |
+| `/exportar` | `/descargar`, `/export` | Genera y envía tu reporte financiero en formato Excel (.xlsx) con balances y detalle. |
 
 > 💡 **Tip:** También puedes escribir palabras como *"hola"*, *"buenas tardes"*, *"ayuda"* o *"info"*, y el bot responderá de forma instantánea sin consumir créditos de IA.
 
@@ -217,7 +219,24 @@ Para registrar un gasto, ingreso o traspaso, asegúrate de mencionar al menos el
 
 ---
 
-## ❓ 9. Preguntas Frecuentes y Consejos Prácticos
+## 📊 9. Descarga y Visualización en Excel (`/exportar`)
+
+Para tener una visión completa de tus finanzas personales y darle sentido a tus datos sin depender de interfaces complejas, puedes solicitar tu reporte en formato **Excel (.xlsx)** en cualquier momento:
+
+1. Envía el comando `/exportar` o `/descargar` en el chat.
+2. El bot compilará todas tus transacciones desde la base de datos y generará un archivo Excel con diseño profesional.
+3. El archivo incluye **dos pestañas**:
+   - **📊 Resumen Financiero:**
+     - Tarjetas con **Total de Ingresos**, **Total de Gastos**, **Balance Neto** y **Traspasos**.
+     - Tabla organizada con el **Desglose de Gastos por Categoría**, porcentaje del total y número de transacciones.
+   - **📝 Detalle de Movimientos:**
+     - Tabla completa con todas tus transacciones cronológicas: Fecha, Tipo, Monto, Categoría, Subcategoría, Cuentas y Descripción.
+     - Incluye **filtros automáticos** en los encabezados y panel congelado para navegar con comodidad.
+4. Puedes abrir el archivo directamente en **Excel**, **Google Sheets**, **Numbers** o en tu teléfono móvil.
+
+---
+
+## ❓ 10. Preguntas Frecuentes y Consejos Prácticos
 
 ### ¿Qué hago si el bot clasificó mal una categoría?
 El modelo de Gemini tiene una tasa muy alta de precisión. Si un comercio es poco conocido (por ejemplo, una tienda local llamada *"Don Pepe"*), añade una palabra de contexto: *"Gasté 120 en ferretería Don Pepe con efectivo"*.
@@ -226,7 +245,7 @@ El modelo de Gemini tiene una tasa muy alta de precisión. Si un comercio es poc
 Sí. Solo menciona la fecha en tu mensaje o audio: *"El 10 de octubre pagué 850 de seguro con tarjeta de crédito BBVA"*.
 
 ### ¿Mis datos se pierden si se reinicia el servidor?
-No. Todas las transacciones se almacenan de forma permanente en la **base de datos relacional** y, si tienes configurado Google Sheets, se respaldan en tu hoja de cálculo en la nube.
+No. Todas las transacciones se almacenan de forma permanente y aislada por usuario en la **base de datos relacional**.
 
 ### ¿Cómo subo un estado de cuenta protegido por contraseña?
 Antes de enviarlo a Telegram, retira la contraseña del PDF para que el lector del bot pueda extraer el texto y las tablas de movimientos.
