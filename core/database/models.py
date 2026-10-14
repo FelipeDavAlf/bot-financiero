@@ -67,7 +67,7 @@ class TransactionRecord(Base):
     category = Column(String(100), nullable=False, index=True)
     subcategory = Column(String(100), nullable=False)
     description = Column(String(500), nullable=False)
-    fingerprint = Column(String(64), index=True, nullable=True)
+    fingerprint = Column(String(500), index=True, nullable=True)
     created_at = Column(DateTime, default=func.now(), nullable=False)
 
     # Relationships

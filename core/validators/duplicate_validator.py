@@ -90,7 +90,7 @@ def generate_transaction_fingerprint(
     norm_type = normalize_text(tx_type or "")
     norm_source = normalize_text(source or "")
     norm_dest = normalize_text(destination or "")
-    norm_desc = normalize_text(description or "")
+    norm_desc = normalize_text(description or "")[:200]
 
     return f"{norm_date}_{norm_amount}_{norm_type}_{norm_source}_{norm_dest}_{norm_desc}"
 

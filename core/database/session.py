@@ -21,9 +21,21 @@ Base = declarative_base()
 
 
 def init_db() -> None:
-    """Creates all database tables defined in the metadata."""
+    """Creates all database tables defined in the metadata and applies safe schema migrations."""
+    import logging
+    from sqlalchemy import text
     import core.database.models  # noqa: F401
+
     Base.metadata.create_all(bind=engine)
+
+    # Safe automated schema migration for existing PostgreSQL deployments
+    try:
+        with engine.begin() as conn:
+            if engine.dialect.name == "postgresql":
+                conn.execute(text("ALTER TABLE transactions ALTER COLUMN fingerprint TYPE VARCHAR(500);"))
+                logging.info("Successfully updated transactions.fingerprint column to VARCHAR(500).")
+    except Exception as exc:
+        logging.warning(f"Could not apply automated migration on transactions.fingerprint: {exc}")
 
 
 @contextmanager
