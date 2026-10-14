@@ -8,7 +8,7 @@ WORKDIR /app
 COPY requirements.txt .
 
 # 4. Instalamos las dependencias sin guardar la caché de pip para mantener la imagen ligera
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --default-timeout=100 -r requirements.txt
 
 # 5. Copiamos el resto del código fuente del proyecto
 COPY . .
