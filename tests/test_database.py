@@ -104,3 +104,49 @@ def test_multi_user_data_isolation(db_session):
     assert len(fingerprints_b) == 0
     txs_b = tx_repo.get_recent_transactions(user_id=user_b.id)
     assert len(txs_b) == 0
+
+
+def test_infer_account_type():
+    from repositories.user_repository import infer_account_type
+    assert infer_account_type("Tarjeta Débito Santander") == "Débito"
+    assert infer_account_type("Banamex Crédito Platino") == "Crédito"
+    assert infer_account_type("Efectivo Monedero") == "Efectivo"
+    assert infer_account_type("Cetesdirecto Ahorro") == "Inversión"
+    assert infer_account_type("Billetera Digital") == "General"
+
+
+def test_add_and_deactivate_custom_accounts(db_session):
+    repo = UserRepository(db_session)
+    user = repo.create_user(telegram_id=55555, first_name="Custom Accounts User")
+
+    # Add custom account
+    acc, was_added = repo.add_account(user_id=user.id, name="Tarjeta Débito Santander")
+    assert was_added is True
+    assert acc.name == "Tarjeta Débito Santander"
+    assert acc.account_type == "Débito"
+    assert acc.is_active is True
+
+    # Re-adding the same active account returns False
+    acc2, was_added2 = repo.add_account(user_id=user.id, name="Tarjeta Débito Santander")
+    assert was_added2 is False
+    assert acc2.id == acc.id
+
+    # Check it appears in active names
+    active_names = repo.get_user_account_names(user_id=user.id)
+    assert "Tarjeta Débito Santander" in active_names
+
+    # Deactivate account
+    deactivated = repo.deactivate_account(user_id=user.id, name="santander")
+    assert deactivated is not None
+    assert deactivated.id == acc.id
+    assert deactivated.is_active is False
+
+    # Check it no longer appears in active names
+    active_names_after = repo.get_user_account_names(user_id=user.id)
+    assert "Tarjeta Débito Santander" not in active_names_after
+
+    # Reactivating account returns True
+    reactivated, was_reactivated = repo.add_account(user_id=user.id, name="Tarjeta Débito Santander")
+    assert was_reactivated is True
+    assert reactivated.is_active is True
+

@@ -41,7 +41,9 @@ El bot cuenta con comandos rápidos para consultar su funcionamiento y reglas:
 | :--- | :--- | :--- |
 | `/inicio` | `/start` | Registra al usuario y muestra el mensaje de bienvenida con el resumen operativo. |
 | `/ayuda` | `/help` | Despliega una guía rápida con ejemplos recomendados de ingresos, gastos y traspasos. |
-| `/cuentas` | `/accounts` | Muestra la lista de tus cuentas y métodos de pago habilitados. |
+| `/cuentas` | `/accounts` | Muestra la lista de tus cuentas y métodos de pago activos. |
+| `/agregar_cuenta` | `/nueva_cuenta`, `/add_account` | Agrega un nuevo banco, tarjeta o método de pago personalizado. |
+| `/eliminar_cuenta` | `/borrar_cuenta`, `/quitar_cuenta` | Desactiva una cuenta que ya no utilices. |
 | `/categorias` | `/categories` | Despliega el catálogo oficial de categorías para clasificar movimientos. |
 | `/exportar` | `/descargar`, `/export` | Genera y envía tu reporte financiero en formato Excel (.xlsx) con balances y detalle. |
 
@@ -137,8 +139,35 @@ El sistema cuenta con un catálogo de cuentas preconfiguradas que se asignan a t
 | **Tarjeta Crédito Rappi** | `Rappi`, `RappiCard`, `crédito Rappi` | Crédito |
 | **Cuenta Mercado Pago** | `Mercado Pago`, `mercadopago`, `MP` | Débito |
 
-> 📌 **¿Qué pasa si no menciono la cuenta?**  
-> La IA intentará inferirla lógicamente según el tipo de gasto o la dejará como general para que no pierdas el registro del gasto.
+---
+
+### ➕ ¿Cómo agregar tus propias cuentas o bancos?
+
+Cada usuario puede registrar sus propios bancos, billeteras y tarjetas. Solo usa el comando:
+`/agregar_cuenta <Nombre de la cuenta>`
+
+**Ejemplos:**
+- `/agregar_cuenta Tarjeta Débito Santander`
+- `/agregar_cuenta Banamex Oro Crédito`
+- `/agregar_cuenta Hey Banco Débito`
+- `/agregar_cuenta Dólares Efectivo`
+- `/agregar_cuenta Cetesdirecto`
+
+> 💡 *El bot detectará automáticamente si es Débito, Crédito, Efectivo o Inversión, y la añadirá de inmediato a tu lista.*
+
+---
+
+### 🗑️ ¿Cómo eliminar o desactivar una cuenta?
+
+Si ya no utilizas un banco o tarjeta, puedes desactivarla con:
+`/eliminar_cuenta <Nombre de la cuenta>`
+
+**Ejemplos:**
+- `/eliminar_cuenta Tarjeta Crédito Stori`
+- `/eliminar_cuenta Rappi`
+
+> 📌 *Nota:* La cuenta quedará inactiva para nuevos registros, pero tus gastos e ingresos anteriores se conservarán intactos en tu historial.
+
 
 ---
 

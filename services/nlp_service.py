@@ -114,20 +114,35 @@ class NLPService:
                         matched = candidate
                         break
 
-                # 2. Match based on explicit bank / brand keywords
+                # 1b. Distinct keyword match in accounts pool (e.g. "santander" in "Tarjeta Débito Santander")
+                if not matched:
+                    import re
+                    ignored_tokens = {"tarjeta", "cuenta", "debito", "débito", "credito", "crédito", "de", "el", "la", "mi"}
+                    query_tokens = [w for w in re.findall(r"\w+", acct_lower) if w not in ignored_tokens and len(w) > 2]
+                    if query_tokens:
+                        for candidate in accounts_pool:
+                            c_lower = candidate.lower()
+                            if all(t in c_lower for t in query_tokens):
+                                matched = candidate
+                                break
+
+                # 2. Match based on bank/brand keywords if present in accounts pool
                 if not matched:
                     if "rappi" in acct_lower:
-                        matched = "Tarjeta Crédito Rappi"
+                        matched = next((c for c in accounts_pool if "rappi" in c.lower()), "Tarjeta Crédito Rappi")
                     elif "mercado pago" in acct_lower or "mercadopago" in acct_lower:
-                        matched = "Cuenta Mercado Pago"
+                        matched = next((c for c in accounts_pool if "mercado pago" in c.lower()), "Cuenta Mercado Pago")
                     elif "stori" in acct_lower:
-                        matched = "Tarjeta Crédito Stori" if "crédito" in acct_lower or "credito" in acct_lower else "Tarjeta Débito Stori"
+                        is_cred = "crédito" in acct_lower or "credito" in acct_lower
+                        matched = next((c for c in accounts_pool if "stori" in c.lower() and ("crédito" in c.lower() or "credito" in c.lower()) == is_cred), None)
                     elif "nu" in acct_lower:
-                        matched = "Tarjeta Débito Nu" if "débito" in acct_lower or "debito" in acct_lower else "Tarjeta Crédito Nu"
+                        is_deb = "débito" in acct_lower or "debito" in acct_lower
+                        matched = next((c for c in accounts_pool if "nu" in c.lower() and ("débito" in c.lower() or "debito" in c.lower()) == is_deb), None)
                     elif "bbva" in acct_lower:
-                        matched = "Tarjeta Crédito BBVA" if "crédito" in acct_lower or "credito" in acct_lower else "Tarjeta Débito BBVA"
+                        is_cred = "crédito" in acct_lower or "credito" in acct_lower
+                        matched = next((c for c in accounts_pool if "bbva" in c.lower() and ("crédito" in c.lower() or "credito" in c.lower()) == is_cred), None)
                     elif "efectivo" in acct_lower:
-                        matched = "Efectivo"
+                        matched = next((c for c in accounts_pool if "efectivo" in c.lower()), "Efectivo")
 
                 clean[acct_field] = matched or acct_str
 
@@ -340,10 +355,17 @@ class NLPService:
         logging.info(f"Extracted {len(extracted_text)} characters from {doc_path}")
         return extracted_text
 
-    def parse_transactions_from_text(self, extracted_text: str) -> list[Transaction]:
+    def parse_transactions_from_text(
+        self,
+        extracted_text: str,
+        user_accounts: Optional[list] = None,
+    ) -> list[Transaction]:
         """
         Sends extracted document text to Gemini and parses structured transactions.
         """
+        accounts_to_use = user_accounts if user_accounts else DEFAULT_SUPPORTED_ACCOUNTS
+        accounts_json = json.dumps(accounts_to_use, ensure_ascii=False)
+
         prompt = f"""
         Eres un asistente financiero experto. Analiza el siguiente estado de cuenta o documento financiero extraído a texto.
         Extrae TODAS las transacciones válidas que encuentres.
@@ -353,7 +375,7 @@ class NLPService:
         - date (YYYY-MM-DD). Convierte cualquier fecha (ej. DD-MM-YYYY o DD/MM/YY) obligatoriamente al formato YYYY-MM-DD.
         - transaction_type ("Ingreso", "Gasto" o "Traspaso"). Si el monto era negativo, generalmente es un "Gasto".
         - amount (número). El monto SIEMPRE debe ser un valor numérico POSITIVO (mayor a 0). Elimina el signo negativo si lo tiene.
-        - source_account (string o null). DEBE ser EXACTAMENTE una de esta lista: ["Efectivo", "Tarjeta Débito BBVA", "Tarjeta Débito Stori", "Tarjeta Crédito BBVA", "Tarjeta Crédito Stori", "Tarjeta Crédito Rappi", "Tarjeta Crédito Nu", "Tarjeta Débito Nu", "Cuenta Mercado Pago"]. Infiérelo del documento o déjalo en null.
+        - source_account (string o null). DEBE ser EXACTAMENTE una de esta lista: {accounts_json}. Infiérelo del documento o déjalo en null.
         - destination_account (string o null).
         - category (string). DEBE ser EXACTAMENTE una de esta lista: [Salario, Rendimientos, Alimentación, Vivienda y Servicios, Transporte, Suscripciones, Ocio y Entretenimiento, Salud y Cuidado, Mascotas, Ahorro e Inversión, Otros, Traspaso].
         - subcategory (string). Asigna una etiqueta corta (1 a 3 palabras) para el detalle.
@@ -378,16 +400,20 @@ class NLPService:
         clean_transactions = []
         for item in raw_items:
             if isinstance(item, dict):
-                clean_item = self._sanitize_transaction_data(item)
+                clean_item = self._sanitize_transaction_data(item, allowed_accounts=accounts_to_use)
                 if clean_item.get("amount", 0) > 0:
                     clean_transactions.append(Transaction(**clean_item))
 
         logging.info(f"Parsed {len(clean_transactions)} transactions with Gemini.")
         return clean_transactions
 
-    def process_document(self, doc_path: str) -> list[Transaction]:
+    def process_document(
+        self,
+        doc_path: str,
+        user_accounts: Optional[list] = None,
+    ) -> list[Transaction]:
         """
         Processes a PDF, CSV, or Excel file and extracts multiple transactions.
         """
         extracted_text = self.extract_document_text(doc_path)
-        return self.parse_transactions_from_text(extracted_text)
+        return self.parse_transactions_from_text(extracted_text, user_accounts=user_accounts)
