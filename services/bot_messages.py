@@ -35,10 +35,12 @@ Alimentación, Transporte, Vivienda y Servicios, Suscripciones, Ocio y Entreteni
 
 ---
 💡 *Comandos útiles:*
-• `/ayuda` - Ver guía de ayuda y ejemplos
-• `/cuentas` - Ver lista de cuentas disponibles
-• `/categorias` - Ver categorías de gastos e ingresos
+• `/cuentas` - Ver tus cuentas y métodos de pago
+• `/agregar_cuenta` - Agregar nueva cuenta o banco (ej: `/agregar_cuenta Santander`)
+• `/eliminar_cuenta` - Desactivar una cuenta (ej: `/eliminar_cuenta Stori`)
 • `/exportar` - Descargar tu reporte financiero en Excel (.xlsx)
+• `/categorias` - Ver categorías de gastos e ingresos
+• `/ayuda` - Ver guía de ayuda y ejemplos
 • `/inicio` - Ver mensaje de bienvenida
 """
 
@@ -65,8 +67,10 @@ Para registrar cualquier transacción, sólo escríbela o dila en una nota de vo
 
 ---
 📌 Comandos rápidos:
+• `/cuentas` - Ver y administrar tus cuentas
+• `/agregar_cuenta <nombre>` - Registrar nuevo banco o tarjeta
+• `/eliminar_cuenta <nombre>` - Desactivar una cuenta
 • `/exportar` - Descargar tu plantilla y reporte en Excel (.xlsx)
-• `/cuentas` - Ver métodos de pago admitidos
 • `/categorias` - Ver categorías permitidas
 • `/ayuda` - Ver esta guía de ayuda
 • `/inicio` - Ver mensaje de inicio

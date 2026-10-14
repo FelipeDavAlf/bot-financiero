@@ -86,6 +86,8 @@ class TelegramBot:
         self.app.add_handler(CommandHandler(["cuentas", "accounts"], self.handle_cuentas))
         self.app.add_handler(CommandHandler(["categorias", "categories"], self.handle_categorias))
         self.app.add_handler(CommandHandler(["exportar", "descargar", "export"], self.handle_exportar))
+        self.app.add_handler(CommandHandler(["agregar_cuenta", "nueva_cuenta", "add_account"], self.handle_agregar_cuenta))
+        self.app.add_handler(CommandHandler(["eliminar_cuenta", "borrar_cuenta", "quitar_cuenta", "delete_account"], self.handle_eliminar_cuenta))
         
         # Listen for any text message that is NOT a command (like /start)
         self.app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
@@ -126,14 +128,89 @@ class TelegramBot:
         if self.user_repository and user:
             accounts = self.user_repository.get_user_accounts(user.id)
             if accounts:
-                accounts_text = "💳 **Tus Cuentas y Métodos de Pago Disponibles:**\n\n"
+                accounts_text = "💳 **Tus Cuentas y Métodos de Pago Activos:**\n\n"
                 for acc in accounts:
                     accounts_text += f"• 🔹 **{acc.name}** ({acc.account_type})\n"
-                accounts_text += "\n💡 *Puedes registrar gastos indicando cualquiera de estas cuentas.*"
+                accounts_text += "\n---\n"
+                accounts_text += "🛠️ **Administración de Cuentas:**\n"
+                accounts_text += "➕ **Agregar cuenta:** `/agregar_cuenta <Nombre>`\n"
+                accounts_text += "*(Ejemplo: `/agregar_cuenta Tarjeta Débito Santander`)*\n\n"
+                accounts_text += "🗑️ **Desactivar cuenta:** `/eliminar_cuenta <Nombre>`\n"
+                accounts_text += "*(Ejemplo: `/eliminar_cuenta Tarjeta Crédito Nu`)*"
                 await update.message.reply_text(accounts_text, parse_mode="Markdown")
                 return
 
         await update.message.reply_text(ACCOUNTS_MESSAGE, parse_mode="Markdown")
+
+    async def handle_agregar_cuenta(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Adds a new custom financial account for the user."""
+        user = self._get_or_create_user(update)
+        if not user or not self.user_repository:
+            await update.message.reply_text("❌ No fue posible acceder a tu usuario.")
+            return
+
+        account_name = " ".join(context.args).strip() if context.args else ""
+        if not account_name:
+            await update.message.reply_text(
+                "ℹ️ **¿Cómo agregar una cuenta?**\n\n"
+                "Escribe el comando seguido del nombre de tu banco o tarjeta. Por ejemplo:\n\n"
+                "• `/agregar_cuenta Tarjeta Débito Santander`\n"
+                "• `/agregar_cuenta Tarjeta Crédito Banamex`\n"
+                "• `/agregar_cuenta Hey Banco Débito`\n"
+                "• `/agregar_cuenta Efectivo Dólares`\n"
+                "• `/agregar_cuenta Cetesdirecto`\n\n"
+                "💡 El bot detectará automáticamente si es Débito, Crédito, Efectivo o Inversión.",
+                parse_mode="Markdown",
+            )
+            return
+
+        account, was_added = self.user_repository.add_account(user_id=user.id, name=account_name)
+        if was_added:
+            await update.message.reply_text(
+                f"✅ **Cuenta agregada exitosamente:**\n\n"
+                f"• 🔹 **{account.name}** ({account.account_type})\n\n"
+                f"Ya puedes registrar tus movimientos mencionando esta cuenta (ej: *'Gasté 250 con {account.name}'*).",
+                parse_mode="Markdown",
+            )
+        else:
+            await update.message.reply_text(
+                f"ℹ️ Ya tienes registrada y activa la cuenta **{account.name}** ({account.account_type}).",
+                parse_mode="Markdown",
+            )
+
+    async def handle_eliminar_cuenta(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Deactivates an existing account for the user."""
+        user = self._get_or_create_user(update)
+        if not user or not self.user_repository:
+            await update.message.reply_text("❌ No fue posible acceder a tu usuario.")
+            return
+
+        account_name = " ".join(context.args).strip() if context.args else ""
+        if not account_name:
+            await update.message.reply_text(
+                "ℹ️ **¿Cómo eliminar o desactivar una cuenta?**\n\n"
+                "Escribe el comando seguido del nombre de la cuenta que ya no utilizas. Por ejemplo:\n\n"
+                "• `/eliminar_cuenta Tarjeta Crédito Stori`\n"
+                "• `/eliminar_cuenta Rappi`\n\n"
+                "💡 Consulta tu lista de cuentas activas escribiendo `/cuentas`.",
+                parse_mode="Markdown",
+            )
+            return
+
+        deactivated = self.user_repository.deactivate_account(user_id=user.id, name=account_name)
+        if deactivated:
+            await update.message.reply_text(
+                f"🗑️ **Cuenta desactivada exitosamente:**\n\n"
+                f"• 🔹 **{deactivated.name}** ({deactivated.account_type})\n\n"
+                f"Esta cuenta ya no se considerará para nuevas transacciones. Tus transacciones pasadas se conservan intactas en tu historial.",
+                parse_mode="Markdown",
+            )
+        else:
+            await update.message.reply_text(
+                f"❌ No encontré ninguna cuenta activa que coincida con **'{account_name}'**.\n\n"
+                f"Escribe `/cuentas` para consultar tus cuentas activas.",
+                parse_mode="Markdown",
+            )
 
     async def handle_categorias(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Sends the list of supported categories."""
@@ -325,6 +402,11 @@ class TelegramBot:
         
         user = self._get_or_create_user(update)
         user_id = user.id if user else None
+        user_accounts = (
+            self.user_repository.get_user_account_names(user.id)
+            if (self.user_repository and user)
+            else None
+        )
 
         status_message = await update.message.reply_text(
             DOCUMENT_STATE_MESSAGES[DocumentProcessingState.DOWNLOADING],
@@ -354,7 +436,11 @@ class TelegramBot:
                 status_message,
                 DOCUMENT_STATE_MESSAGES[DocumentProcessingState.ANALYZING]
             )
-            transactions = await asyncio.to_thread(self.nlp_service.parse_transactions_from_text, extracted_text)
+            transactions = await asyncio.to_thread(
+                self.nlp_service.parse_transactions_from_text,
+                extracted_text,
+                user_accounts,
+            )
             
             if not transactions:
                 await self._update_status(status_message, "⚠️ No encontré ninguna transacción válida en este documento.")

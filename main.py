@@ -92,7 +92,9 @@ async def lifespan(app: FastAPI):
     try:
         await bot.app.bot.set_my_commands([
             BotCommand("ayuda", "Guía de uso y ejemplos"),
-            BotCommand("cuentas", "Cuentas y métodos de pago"),
+            BotCommand("cuentas", "Ver tus cuentas activas"),
+            BotCommand("agregar_cuenta", "Agregar cuenta o banco"),
+            BotCommand("eliminar_cuenta", "Desactivar una cuenta"),
             BotCommand("categorias", "Categorías de gastos e ingresos"),
             BotCommand("exportar", "Descargar reporte en Excel (.xlsx)"),
             BotCommand("inicio", "Mensaje de bienvenida"),
