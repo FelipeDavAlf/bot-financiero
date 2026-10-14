@@ -7,7 +7,7 @@ from fastapi import BackgroundTasks, FastAPI, Request, Response
 from telegram import BotCommand, Update
 
 from core.config import settings
-from core.database.session import SessionLocal, init_db
+from core.database.session import init_db
 from repositories.user_repository import UserRepository
 from repositories.transaction_repository import TransactionRepository
 from services.nlp_service import NLPService
