@@ -14,7 +14,12 @@ def db_session():
     """Provides a fresh in-memory SQLite database session for testing."""
     engine = create_engine("sqlite:///:memory:")
     Base.metadata.create_all(bind=engine)
-    TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    TestingSessionLocal = sessionmaker(
+        autocommit=False,
+        autoflush=False,
+        expire_on_commit=False,
+        bind=engine,
+    )
     session = TestingSessionLocal()
     try:
         yield session
@@ -149,4 +154,62 @@ def test_add_and_deactivate_custom_accounts(db_session):
     reactivated, was_reactivated = repo.add_account(user_id=user.id, name="Tarjeta Débito Santander")
     assert was_reactivated is True
     assert reactivated.is_active is True
+
+
+def test_repositories_scoped_session_factory():
+    """Verifies that repositories operate properly without pre-created sessions via session_factory."""
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(bind=engine)
+    factory = sessionmaker(
+        autocommit=False,
+        autoflush=False,
+        expire_on_commit=False,
+        bind=engine,
+    )
+
+    user_repo = UserRepository(session_factory=factory)
+    tx_repo = TransactionRepository(session_factory=factory)
+
+    # User creation and lookup with scoped sessions
+    user = user_repo.create_user(telegram_id=88888, first_name="ScopedUser")
+    assert user.id is not None
+    fetched = user_repo.get_by_telegram_id(88888)
+    assert fetched is not None
+    assert fetched.id == user.id
+
+    # Transaction save with scoped sessions
+    tx = Transaction(
+        date=date(2026, 10, 14),
+        transaction_type="Gasto",
+        amount=150.0,
+        source_account="Efectivo",
+        destination_account=None,
+        category="Alimentación",
+        subcategory="Comida rápida",
+        description="Hamburguesa",
+    )
+    record = tx_repo.save_transaction(user_id=user.id, transaction=tx)
+    assert record.id is not None
+    assert record.user_id == user.id
+
+    all_txs = tx_repo.get_all_user_transactions(user_id=user.id)
+    assert len(all_txs) == 1
+    assert all_txs[0].description == "Hamburguesa"
+
+
+def test_session_rollback_recovery(db_session):
+    """Verifies that an exception during an operation does not leave a pending rollback error."""
+    user_repo = UserRepository(db_session)
+    user = user_repo.create_user(telegram_id=44444, first_name="RollbackTest")
+    assert user.id is not None
+
+    # Attempting to insert a duplicate user should fail unique constraint
+    with pytest.raises(Exception):
+        user_repo.create_user(telegram_id=44444, first_name="Duplicate")
+
+    # The session must recover immediately and allow subsequent queries without PendingRollbackError
+    recovered_user = user_repo.get_by_telegram_id(44444)
+    assert recovered_user is not None
+    assert recovered_user.first_name == "RollbackTest"
+
 

@@ -95,6 +95,20 @@ class TelegramBot:
         self.app.add_handler(MessageHandler(filters.VOICE, self.handle_voice))
         # Listen for documents (PDF, CSV, Excel)
         self.app.add_handler(MessageHandler(filters.Document.ALL, self.handle_document))
+        
+        # Register global error handler to safely log errors and notify the user
+        self.app.add_error_handler(self.handle_error)
+
+    async def handle_error(self, update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Global error handler for the Telegram bot to prevent silent failures and notify the user."""
+        logging.error(f"Exception while handling an update: {context.error}", exc_info=context.error)
+        if isinstance(update, Update) and update.effective_message:
+            try:
+                await update.effective_message.reply_text(
+                    "⚠️ Ocurrió un error inesperado al procesar tu solicitud. Por favor intenta de nuevo en unos momentos."
+                )
+            except Exception as notify_exc:
+                logging.debug(f"Could not send error notification to user: {notify_exc}")
 
     def _get_or_create_user(self, update: Update):
         """Retrieves or registers the Telegram user in the database."""

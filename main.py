@@ -21,9 +21,8 @@ logging.basicConfig(
 
 # 1. Global database and services instantiation
 init_db()
-db_session = SessionLocal()
-user_repository = UserRepository(db=db_session)
-transaction_repository = TransactionRepository(db=db_session)
+user_repository = UserRepository()
+transaction_repository = TransactionRepository()
 
 nlp_service = NLPService()
 sheets_service = None
