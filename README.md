@@ -20,5 +20,6 @@ Para conocer a detalle todos los comandos, ejemplos de uso por texto, notas de v
 - 🎙️ **Notas de Voz**: Envía audios por Telegram; Gemini interpreta el audio de forma nativa.
 - 📄 **Cargas Masivas (PDF / Excel / CSV)**: Procesa estados de cuenta bancarios (BBVA, Nu, Mercado Pago, etc.) con barra de progreso en vivo.
 - 🛡️ **Prevención Anti-Duplicados**: Algoritmo de huella digital (*fingerprint*) para evitar transacciones repetidas.
-- 🗄️ **Persistencia Multi-Usuario**: Base de datos relacional con SQLAlchemy para gestión de perfiles, cuentas bancarias y transacciones.
-- 📊 **Sincronización con Google Sheets**: Conciliación en tiempo real con tu hoja de cálculo.
+- 🗄️ **Persistencia Multi-Usuario**: Base de datos relacional con SQLAlchemy para gestión aislada de perfiles, cuentas bancarias y transacciones.
+- 📊 **Reportes y Plantilla en Excel (`/exportar`)**: Descarga al instante un libro `.xlsx` con dashboard de balances, desglose por categoría y tabla detallada de movimientos.
+- 🔄 **Sincronización Opcional con Google Sheets**: Habilitable bajo demanda (`ENABLE_GOOGLE_SHEETS_SYNC=true`).
