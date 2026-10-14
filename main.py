@@ -4,7 +4,7 @@ from http import HTTPStatus
 import logging
 
 from fastapi import BackgroundTasks, FastAPI, Request, Response
-from telegram import Update
+from telegram import BotCommand, Update
 
 from core.config import settings
 from core.database.session import SessionLocal, init_db
@@ -87,6 +87,19 @@ async def lifespan(app: FastAPI):
     if webhook_url:
         await bot.app.bot.set_webhook(url=f"{webhook_url}/webhook")
         logging.info(f"Webhook set to: {webhook_url}/webhook")
+
+    # Register Spanish bot command menu in Telegram UI
+    try:
+        await bot.app.bot.set_my_commands([
+            BotCommand("ayuda", "Guía de uso y ejemplos"),
+            BotCommand("cuentas", "Cuentas y métodos de pago"),
+            BotCommand("categorias", "Categorías de gastos e ingresos"),
+            BotCommand("exportar", "Descargar reporte en Excel (.xlsx)"),
+            BotCommand("inicio", "Mensaje de bienvenida"),
+        ])
+        logging.info("Registered Spanish bot command menu in Telegram.")
+    except Exception as exc:
+        logging.warning(f"Could not register bot commands menu: {exc}")
 
     yield
 

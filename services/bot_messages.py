@@ -35,10 +35,11 @@ Alimentación, Transporte, Vivienda y Servicios, Suscripciones, Ocio y Entreteni
 
 ---
 💡 *Comandos útiles:*
-• `/exportar` - Descargar tu reporte financiero en Excel (.xlsx) con resumen y detalle
+• `/ayuda` - Ver guía de ayuda y ejemplos
 • `/cuentas` - Ver lista de cuentas disponibles
 • `/categorias` - Ver categorías de gastos e ingresos
-• `/help` - Ver guía de ayuda y ejemplos
+• `/exportar` - Descargar tu reporte financiero en Excel (.xlsx)
+• `/inicio` - Ver mensaje de bienvenida
 """
 
 HELP_MESSAGE = """📖 **Guía de Uso del Bot Financiero**
@@ -67,7 +68,8 @@ Para registrar cualquier transacción, sólo escríbela o dila en una nota de vo
 • `/exportar` - Descargar tu plantilla y reporte en Excel (.xlsx)
 • `/cuentas` - Ver métodos de pago admitidos
 • `/categorias` - Ver categorías permitidas
-• `/help` - Ver esta guía de ayuda
+• `/ayuda` - Ver esta guía de ayuda
+• `/inicio` - Ver mensaje de inicio
 """
 
 ACCOUNTS_MESSAGE = """💳 **Cuentas y Métodos de Pago Configurados**
@@ -115,7 +117,7 @@ Para registrar un gasto, ingreso o traspaso, asegúrate de mencionar al menos el
 • 🔁 `"Pasé $1,000 de BBVA a Mercado Pago"`
 
 🎙️ También puedes enviar una **nota de voz** o subir tu **estado de cuenta** (PDF, Excel o CSV).
-Usa `/help` si deseas consultar más información.
+Usa `/ayuda` si deseas consultar más información.
 """
 
 GREETING_KEYWORDS = {

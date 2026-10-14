@@ -80,13 +80,12 @@ class TelegramBot:
             .build()
         )
         
-        # Command handlers for welcome, help, accounts, categories and export
-        self.app.add_handler(CommandHandler("start", self.handle_start))
-        self.app.add_handler(CommandHandler("help", self.handle_help))
-        self.app.add_handler(CommandHandler("cuentas", self.handle_cuentas))
-        self.app.add_handler(CommandHandler("categorias", self.handle_categorias))
-        self.app.add_handler(CommandHandler("exportar", self.handle_exportar))
-        self.app.add_handler(CommandHandler("descargar", self.handle_exportar))
+        # Command handlers with Spanish primary commands and English/common aliases
+        self.app.add_handler(CommandHandler(["inicio", "start"], self.handle_start))
+        self.app.add_handler(CommandHandler(["ayuda", "help"], self.handle_help))
+        self.app.add_handler(CommandHandler(["cuentas", "accounts"], self.handle_cuentas))
+        self.app.add_handler(CommandHandler(["categorias", "categories"], self.handle_categorias))
+        self.app.add_handler(CommandHandler(["exportar", "descargar", "export"], self.handle_exportar))
         
         # Listen for any text message that is NOT a command (like /start)
         self.app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
