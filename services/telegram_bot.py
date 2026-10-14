@@ -189,8 +189,8 @@ class TelegramBot:
             )
             try:
                 await status_message.delete()
-            except Exception:
-                pass
+            except Exception as exc:
+                logging.debug(f"Could not delete temporary status message: {exc}")
         except Exception as exc:
             logging.error(f"Error generating or sending Excel report: {exc}", exc_info=True)
             await self._update_status(
@@ -315,8 +315,8 @@ class TelegramBot:
             if file_path and os.path.exists(file_path):
                 try:
                     os.remove(file_path)
-                except OSError:
-                    pass
+                except OSError as exc:
+                    logging.debug(f"Could not remove temp audio file: {exc}")
 
     async def handle_document(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Processes document uploads (PDFs, Excels, CSVs) with live state tracking."""
@@ -385,5 +385,5 @@ class TelegramBot:
             if file_path and os.path.exists(file_path):
                 try:
                     os.remove(file_path)
-                except OSError:
-                    pass
+                except OSError as exc:
+                    logging.debug(f"Could not remove temp doc file: {exc}")
