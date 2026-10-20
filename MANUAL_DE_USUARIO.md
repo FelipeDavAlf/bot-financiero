@@ -248,20 +248,28 @@ Para registrar un gasto, ingreso o traspaso, asegúrate de mencionar al menos el
 
 ---
 
-## 📊 9. Descarga y Visualización en Excel (`/exportar`)
+## 📊 9. Descarga y Plantilla de Finanzas Personales (`/exportar`)
 
-Para tener una visión completa de tus finanzas personales y darle sentido a tus datos sin depender de interfaces complejas, puedes solicitar tu reporte en formato **Excel (.xlsx)** en cualquier momento:
+Para tener una visión completa de tus finanzas personales y tomar decisiones inteligentes sobre tu dinero, el bot genera una **plantilla financiera integral en Excel (.xlsx)** que puedes consultar y editar:
 
-1. Envía el comando `/exportar` o `/descargar` en el chat.
-2. El bot compilará todas tus transacciones desde la base de datos y generará un archivo Excel con diseño profesional.
-3. El archivo incluye **dos pestañas**:
-   - **📊 Resumen Financiero:**
-     - Tarjetas con **Total de Ingresos**, **Total de Gastos**, **Balance Neto** y **Traspasos**.
-     - Tabla organizada con el **Desglose de Gastos por Categoría**, porcentaje del total y número de transacciones.
-   - **📝 Detalle de Movimientos:**
-     - Tabla completa con todas tus transacciones cronológicas: Fecha, Tipo, Monto, Categoría, Subcategoría, Cuentas y Descripción.
-     - Incluye **filtros automáticos** en los encabezados y panel congelado para navegar con comodidad.
-4. Puedes abrir el archivo directamente en **Excel**, **Google Sheets**, **Numbers** o en tu teléfono móvil.
+1. Envía el comando `/exportar` (o `/descargar`) en el chat de Telegram.
+2. El bot compilará todos tus movimientos desde la base de datos y generará un archivo Excel con formato profesional.
+3. El archivo incluye **4 pestañas estratégicas**:
+   - **📊 1. Resumen Financiero:**
+     - Tarjetas KPI con **Total Ingresos**, **Total Gastos**, **Balance Neto**, **Traspasos**, **% Tasa de Ahorro Real** y **Semáforo de Salud Financiera**.
+     - **💡 Diagnóstico y Plan de Acción:** Análisis inteligente de tu principal fuga de dinero y cuánto necesitas recortar o ahorrar para alcanzar la meta del 20%.
+     - **⚖️ Regla 50 / 30 / 20:** Comparativa entre tus gastos reales y los porcentajes ideales (*Necesidades Básicas <= 50%*, *Deseos y Estilo de Vida <= 30%*, *Ahorro e Inversión >= 20%*).
+     - **🏷️ Desglose por Categoría con Gráfico de Dona:** Distribución visual de gastos con porcentaje de participación y promedios.
+     - **📅 Evolución Histórica Mensual:** Tendencia mes a mes de ingresos, gastos, ahorro neto y cumplimiento de metas.
+   - **🎯 2. Presupuesto y Metas (Plantilla Interactiva):**
+     - Asigna tus metas mensuales en la columna *'Presupuesto Asignado'*.
+     - Las fórmulas de Excel calculan automáticamente tu **Gasto Real**, **Saldo Disponible**, **% Consumido** y **Semáforo de Alerta** (*🔴 Excedido*, *🟡 Alerta*, *🟢 En Control*).
+   - **💳 3. Cuentas y Métodos:**
+     - Análisis de gastos e ingresos por banco, tarjeta o efectivo.
+     - Indicador de **dependencia de tarjetas de crédito** para prevenir sobreendeudamiento.
+   - **📝 4. Detalle de Movimientos:**
+     - Bitácora completa y filtrable con todas tus transacciones cronológicas: Fecha, Tipo, Monto, Categoría, Subcategoría, Cuentas y Descripción.
+4. Puedes abrir el archivo directamente en **Microsoft Excel**, **Google Sheets**, **Apple Numbers** o en cualquier visor de hojas de cálculo móvil.
 
 ---
 

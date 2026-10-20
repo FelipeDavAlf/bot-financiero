@@ -74,6 +74,8 @@ def test_excel_export_service_generates_valid_workbook():
     # Load workbook from generated buffer and verify content
     wb = openpyxl.load_workbook(buffer)
     assert "Resumen Financiero" in wb.sheetnames
+    assert "Presupuesto y Metas" in wb.sheetnames
+    assert "Cuentas y Métodos" in wb.sheetnames
     assert "Detalle de Movimientos" in wb.sheetnames
 
     # Check Summary Sheet
@@ -83,6 +85,21 @@ def test_excel_export_service_generates_valid_workbook():
     assert ws_summary["C6"].value == 350.0    # Total Gastos
     assert ws_summary["D6"].value == 14650.0  # Balance Neto
     assert ws_summary["E6"].value == 1000.0   # Traspasos
+    assert ws_summary["F6"].value is not None  # Tasa de ahorro
+    assert ws_summary["G6"].value is not None  # Estado financiero
+
+    # Check Budget Sheet
+    ws_budget = wb["Presupuesto y Metas"]
+    assert "PLANIFICADOR" in str(ws_budget["B2"].value)
+    assert ws_budget["B5"].value == "Categoría"
+    assert ws_budget["D5"].value == "Presupuesto Asignado (Meta)"
+    assert ws_budget["E5"].value == "Gasto Real Actual"
+
+    # Check Accounts Sheet
+    ws_accounts = wb["Cuentas y Métodos"]
+    assert "ANÁLISIS DE CUENTAS" in str(ws_accounts["B2"].value)
+    assert ws_accounts["B5"].value == "Cuenta / Tarjeta"
+    assert ws_accounts["C5"].value == "Tipo de Cuenta"
 
     # Check Detail Sheet
     ws_detail = wb["Detalle de Movimientos"]
@@ -90,6 +107,22 @@ def test_excel_export_service_generates_valid_workbook():
     assert ws_detail["B1"].value == "Fecha"
     assert ws_detail["D1"].value == "Monto"
     assert ws_detail.max_row == 4  # Header + 3 transactions
+
+
+def test_excel_export_service_handles_empty_transactions():
+    service = ExcelExportService()
+    buffer = service.generate_user_finance_workbook(user_name="Usuario Vacio", transactions=[])
+
+    assert buffer is not None
+    wb = openpyxl.load_workbook(buffer)
+    assert "Resumen Financiero" in wb.sheetnames
+    assert "Presupuesto y Metas" in wb.sheetnames
+
+    ws_summary = wb["Resumen Financiero"]
+    assert ws_summary["B6"].value == 0.0
+    assert ws_summary["C6"].value == 0.0
+    assert ws_summary["D6"].value == 0.0
+
 
 
 def test_transaction_repository_get_all_user_transactions(db_session):

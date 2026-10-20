@@ -265,11 +265,15 @@ class TelegramBot:
             filename = f"Finanzas_{today_str}.xlsx"
 
             caption = (
-                f"📊 **¡Aquí tienes tu Reporte Financiero!**\n\n"
+                f"📊 **¡Aquí tienes tu Plantilla de Finanzas Personales!**\n\n"
                 f"👤 **Usuario:** {user.first_name or user.username or 'Usuario'}\n"
-                f"📝 **Transacciones incluidas:** {len(transactions)}\n"
-                f"📅 **Corte al:** {today_str}\n\n"
-                f"✨ *Contiene 2 pestañas:* Resumen Financiero (balances y categorías) y Detalle de Movimientos."
+                f"📝 **Movimientos incluidos:** {len(transactions)}\n"
+                f"📅 **Fecha de corte:** {today_str}\n\n"
+                f"✨ **Pestañas incluidas:**\n"
+                f"1️⃣ **Resumen Financiero:** Diagnóstico de ahorro, regla 50/30/20 y gráfica de gastos.\n"
+                f"2️⃣ **Presupuesto y Metas:** Plantilla interactiva con semáforos y saldo disponible.\n"
+                f"3️⃣ **Cuentas y Métodos:** Análisis de tarjetas de crédito vs débito y endeudamiento.\n"
+                f"4️⃣ **Detalle de Movimientos:** Bitácora completa y filtrable de tus finanzas."
             )
 
             await update.message.reply_document(
